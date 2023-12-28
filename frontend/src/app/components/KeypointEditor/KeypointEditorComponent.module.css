@@ -1,0 +1,49 @@
+.keypointEditorContainer {
+    z-index: 2;
+    width: 440px; 
+    padding: 20px;
+    position: relative; 
+    border-radius: 10px;
+    background-color: rgb(66, 66, 66)
+}
+
+.keypointGradient {
+    z-index: 2;
+    height: 40px;
+    width: 400px;
+    position: relative; 
+    bottom: 0; 
+    background-color: rgb(255, 255, 255);
+
+}
+.keypointAlphaCurve {
+    z-index: 2;
+    height: 80px;
+    margin-top: 10px;
+    width: 400px;
+    position: relative; 
+    margin-bottom: 10px;
+
+}
+
+.keypointIconsContainer {
+    z-index: 2;
+    height: 40px;
+    width: 400px;
+    position: relative;
+    top: 0; 
+}
+
+.keypointColorPicker {
+    z-index: 4;
+    margin-top: 20px;
+    position: relative;
+    top: 0; 
+}
+
+.deleteButton {
+    z-index: 3;
+    width: 80px;
+    height: 40px;
+    padding: 5px;
+}
