@@ -132,7 +132,7 @@ export class Viewer {
         this.camera.setTarget(vec3.fromValues(0., 0., 0.));
         this.camera.setUp(vec3.fromValues(0, 1, 0));
         this.controls = new Arcball(this.camera, this.canvas);
-        // this.controls.update();
+        this.controls.update();
 
         let shaderProgram = this.gl.createProgram();
         this.shaderProgram = buildShaders(this.gl, vertexShaderSource, fragmentShaderSource, shaderProgram);
