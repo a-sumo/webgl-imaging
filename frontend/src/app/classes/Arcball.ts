@@ -71,7 +71,7 @@ export class Arcball {
 
     onMouseWheel(event: WheelEvent) {
         this.spherical.radius -= event.deltaY * 0.01;
-        this.spherical.radius = Math.max(1.0, Math.min(100.0, this.spherical.radius)); // Limit zoom
+        this.spherical.radius = Math.max(1.0, Math.min(100.0, this.spherical.radius)); 
         this.update();
     }
 
@@ -82,9 +82,9 @@ export class Arcball {
         vec3.subtract(offset, this.target, this.cameraPosition);
         vec3.rotateY(offset, offset, this.target, this.spherical.theta);
         vec3.rotateX(offset, offset, this.target, this.spherical.phi);
-        vec3.normalize(offset, offset); // Normalize the offset vector
-        vec3.scale(offset, offset, this.spherical.radius); // Scale the offset vector by the radius
-        vec3.add(newPosition, this.target, offset); // Add the offset vector to the target to get the new camera position
+        vec3.normalize(offset, offset);
+        vec3.scale(offset, offset, this.spherical.radius); 
+        vec3.add(newPosition, this.target, offset); 
 
         // Update camera
         this.camera.setPosition(newPosition);
