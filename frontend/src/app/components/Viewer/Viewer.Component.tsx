@@ -1,25 +1,29 @@
 'use client';
 
 import React, { useRef, useEffect, useState } from 'react';
-import { Viewer } from '../classes/viewer';
-import DataArray from '../classes/dataArray';
-import NRRDLoader from '../classes/nrrdLoader';
+import { Viewer } from '../../classes/viewer';
+import DataArray from '../../classes/dataArray';
+import NRRDLoader from '../../classes/nrrdLoader';
+import { Keypoint } from '../KeypointEditor/keypoint.interface';
+import KeypointEditorComponent from '../KeypointEditor/KeypointEditor.Component'
+import styles from './Viewer.Component.module.css';
 
-interface Keypoint {
-  id: number;
-  x: number;
-  color: string;
-  alpha: number;
-}
+const ViewerComponent = () => {
 
-const ViewerComponent: React.FC = () => {
+  const [keypoints, setKeypoints] = useState<Keypoint[]>([
+    { id: 0, x: 0, color: "#000000", alpha: 0 },
+    { id: 1, x: 1, color: "#ffffff", alpha: 1 },
+  ])
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [view, setView] = useState<Viewer | null>(null);
   const [isViewInit, setIsViewInit] = useState(false);
-  const [keypoints, setKeypoints] = useState<Keypoint[]>([
-    { id: 0, x: 0, color: "#000000", alpha: 0 },
-    { id: 1, x: 20, color: "#ffffff", alpha: 1 },
-  ]);
+
+  const handleKeypointUpdate = (updatedKeypoints: Keypoint[]) => {
+    if (isViewInit && view) {
+      setKeypoints(updatedKeypoints);
+      view.updateTransferFunction(updatedKeypoints);
+    }
+  };
 
   const getNrrdData = (): Promise<ArrayBuffer> => {
     const filePath = '/PDA_CT.nrrd';
@@ -57,18 +61,20 @@ const ViewerComponent: React.FC = () => {
     }
 
     return () => {
-      // Cleanup code here if needed
     };
   }, []);
 
   const updateKeypoints = (newKeypoints: Keypoint[]) => {
-    setKeypoints(newKeypoints);
     if (isViewInit && view) {
+      setKeypoints(newKeypoints);
       view.updateTransferFunction(newKeypoints);
     }
   };
 
-  return <canvas ref={canvasRef} width="400" height="400" />;
+  return <div className="viewerContainer">
+    <canvas ref={canvasRef} width="400" height="400" />
+    <KeypointEditorComponent keypoints={keypoints} setKeypoints={setKeypoints} onKeypointChange={handleKeypointUpdate} />
+  </div>;
 };
 
 export default ViewerComponent;

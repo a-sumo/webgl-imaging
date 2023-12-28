@@ -1,0 +1,11 @@
+.viewerContainer {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+}
+
+@media (max-width: 768px) {
+    .viewerContainer {
+        flex-direction: column;
+    }
+}
