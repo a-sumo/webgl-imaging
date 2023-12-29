@@ -18,13 +18,19 @@ const KeypointEditorComponent: React.FC<KeypointEditorProps> = ({ keypoints, set
     const keypointEditorContainerRef = useRef<HTMLDivElement | null>(null);
     const gradientSvgRef = useRef<SVGSVGElement>(null);
     const keypointSvgWidth = gradientSvgRef.current?.getBoundingClientRect().width ? gradientSvgRef.current?.getBoundingClientRect().width : 400;
+    const keypointSvgHeight = gradientSvgRef.current?.getBoundingClientRect().height ? gradientSvgRef.current?.getBoundingClientRect().height : 50;
+
     useEffect(() => {
         draw();
-        window.addEventListener('mousemove', onMouseMove);
-        window.addEventListener('mouseup', onMouseUp);
+        if (keypointEditorContainerRef.current) {
+            keypointEditorContainerRef.current.addEventListener('mousemove', onMouseMove);
+            keypointEditorContainerRef.current.addEventListener('mouseup', onMouseUp);
+        }
         return () => {
-            window.removeEventListener('mousemove', onMouseMove);
-            window.removeEventListener('mouseup', onMouseUp);
+            if (keypointEditorContainerRef.current) {
+                keypointEditorContainerRef.current.removeEventListener('mousemove', onMouseMove);
+                keypointEditorContainerRef.current.removeEventListener('mouseup', onMouseUp);
+            }
         };
     }, [keypoints]);
 
@@ -34,7 +40,7 @@ const KeypointEditorComponent: React.FC<KeypointEditorProps> = ({ keypoints, set
         }
         gradientSvgRef.current.innerHTML = '';
         keypoints.sort((a, b) => a.x - b.x);
-        const leftEdgePoint = { id: 999, x: 0, color: keypoints[0].color, alpha: keypoints[0].alpha };
+        const leftEdgePoint = { id: -1, x: 0, color: keypoints[0].color, alpha: keypoints[0].alpha };
         const rightEdgePoint = {
             id: 1000,
             x: gradientSvgRef.current.getBoundingClientRect().width,
@@ -53,8 +59,14 @@ const KeypointEditorComponent: React.FC<KeypointEditorProps> = ({ keypoints, set
     };
 
     const drawGradient = (keypoint: Keypoint, nextKeypoint: Keypoint) => {
-        const startColor = `rgba(${chroma(keypoint.color).alpha(keypoint.alpha).rgba().join(',')})`;
-        const endColor = `rgba(${chroma(nextKeypoint.color).alpha(nextKeypoint.alpha).rgba().join(',')})`;
+        // console.log("alpha", keypoint.alpha);
+        const startColor = keypoint.color !== 'transparent'
+            ? `rgba(${chroma(keypoint.color).alpha(keypoint.alpha).rgba().join(',')})`
+            : `rgba(0,0,0,0)`;
+
+        const endColor = nextKeypoint.color !== 'transparent'
+            ? `rgba(${chroma(nextKeypoint.color).alpha(nextKeypoint.alpha).rgba().join(',')})`
+            : `rgba(0,0,0,0)`;
         const svg = `
           <defs>
               <linearGradient id="Gradient${keypoint.id}" x1="0" x2="1" y1="0" y2="0">
@@ -64,7 +76,11 @@ const KeypointEditorComponent: React.FC<KeypointEditorProps> = ({ keypoints, set
           </defs>
           <rect x="${keypoint.x * keypointSvgWidth}" y="0" width="${(nextKeypoint.x - keypoint.x) * keypointSvgWidth}" height="100%" fill="url(#Gradient${keypoint.id})" />
         `;
-        gradientSvgRef.current!.innerHTML += svg;
+
+        const svgElement = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svgElement.innerHTML = svg;
+        gradientSvgRef.current!.appendChild(svgElement);
+
     };
 
     const onKeypointMouseDown = (event: React.MouseEvent, keypoint: Keypoint) => {
@@ -79,10 +95,12 @@ const KeypointEditorComponent: React.FC<KeypointEditorProps> = ({ keypoints, set
             x = Math.max(0, Math.min(x, rect.width));
             const activeKeypoint = keypoints.find(keypoint => keypoint.id === activeKeypointId);
             if (activeKeypoint) {
-                activeKeypoint.x = x / rect.width;
-                keypoints.sort((a, b) => a.x - b.x);
-                requestAnimationFrame(() => draw());
-                setKeypoints([...keypoints]);
+                requestAnimationFrame(() => {
+                    activeKeypoint.x = x / rect.width;
+                    keypoints.sort((a, b) => a.x - b.x);
+                    draw();
+                    setKeypoints([...keypoints]);
+                });
             }
         }
     };
@@ -119,15 +137,11 @@ const KeypointEditorComponent: React.FC<KeypointEditorProps> = ({ keypoints, set
         `;
         return `data:image/svg+xml,${encodeURIComponent(svg)}`;
     }
-    function generatePathD(keypoints: Keypoint[]): string {
+    function generatePathD(keypoints: Keypoint[], width: number, height: number): string {
         keypoints.sort((a, b) => a.x - b.x);
-        let d = `M ${keypoints[0].x * keypointSvgWidth} ${keypoints[0].alpha * 50}`;
+        let d = `M ${keypoints[0].x * width} ${(1 - keypoints[0].alpha) * height}`;
         for (let i = 1; i < keypoints.length; i++) {
-            let cp1x = keypoints[i - 1].x * keypointSvgWidth + (keypoints[i].x - keypoints[i - 1].x) * keypointSvgWidth / 3;
-            let cp1y = keypoints[i - 1].alpha * 50 + (keypoints[i].alpha - keypoints[i - 1].alpha) * 50 / 3;
-            let cp2x = keypoints[i - 1].x * keypointSvgWidth + 2 * (keypoints[i].x - keypoints[i - 1].x) * keypointSvgWidth / 3;
-            let cp2y = keypoints[i - 1].alpha * 50 + 2 * (keypoints[i].alpha - keypoints[i - 1].alpha) * 50 / 3;
-            d += ` C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${keypoints[i].x * keypointSvgWidth} ${keypoints[i].alpha * 50}`;
+            d += ` L ${keypoints[i].x * width} ${(1 - keypoints[i].alpha) * height}`;
         }
         return d;
     }
@@ -141,6 +155,9 @@ const KeypointEditorComponent: React.FC<KeypointEditorProps> = ({ keypoints, set
         }
     };
 
+    const onAlphaChange = () => {
+
+    }
     return (
         <div ref={keypointEditorContainerRef} className={styles.keypointEditorContainer}>
             <div className={styles.keypointIconsContainer}>
@@ -159,20 +176,32 @@ const KeypointEditorComponent: React.FC<KeypointEditorProps> = ({ keypoints, set
             <svg ref={gradientSvgRef} className={styles.keypointGradient}
                 onClick={onGradientClick} onMouseDown={onGradientClick}
             ></svg>
-            <div className={styles.keypointAlphaCurve}>
-                <svg>
-                    <path d={generatePathD(keypoints)} stroke="white" strokeWidth={1} fill="transparent" />
-                </svg>
-            </div>
+            <svg className={styles.keypointAlphaCurve}>
+                <path d={generatePathD(keypoints, keypointSvgWidth, keypointSvgHeight)} stroke="white" strokeWidth={1} fill="transparent" />
+            </svg>
+
             <div className={styles.keypointColorPicker}>
                 <button className={styles.deleteButton} onClick={onKeypointDelete}>
                     Delete
                 </button>
-                <SketchPicker color={keypoints.find(keypoint => keypoint.id === activeKeypointId)?.color}
-                    onChange={(color) => {
-                        const alpha = color.rgb.a;
-                        onColorChange(color);
-                    }} />
+                <SketchPicker
+                    color={keypoints.find(keypoint => keypoint.id === activeKeypointId)?.color !== 'transparent'
+                        ? {
+                            r: chroma(keypoints.find(keypoint => keypoint.id === activeKeypointId)?.color || '#000').get('rgb.r'),
+                            g: chroma(keypoints.find(keypoint => keypoint.id === activeKeypointId)?.color || '#000').get('rgb.g'),
+                            b: chroma(keypoints.find(keypoint => keypoint.id === activeKeypointId)?.color || '#000').get('rgb.b'),
+                            a: keypoints.find(keypoint => keypoint.id === activeKeypointId)?.alpha || 1
+                        }
+                        : {
+                            r: 0,
+                            g: 0,
+                            b: 0,
+                            a: 0
+                        }
+                    }
+                    onChange={onColorChange}
+                />
+
             </div>
         </div>
 
