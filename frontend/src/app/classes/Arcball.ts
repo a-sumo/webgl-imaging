@@ -52,14 +52,15 @@ export class Arcball {
         }
 
         // Convert mouse movement to spherical coordinates
-        const dx = event.movementX * 0.005;
-        const dy = event.movementY * 0.005;
-        const dtheta = dx / this.arcballRadius;
-        const dphi = dy / this.arcballRadius;
+        const dx = event.movementX * 0.01;
+        const dy = event.movementY * 0.01;
 
-        // Update spherical coordinates
-        this.spherical.theta += dtheta;
-        this.spherical.phi -= dphi;
+        // Transform mouse movement vector from screen space to world space
+        const direction = vec3.transformQuat(vec3.create(), vec3.fromValues(dx, dy, 0), this.camera.getQuaternion());
+
+        // Update spherical coordinates based on direction of mouse movement
+        this.spherical.theta += direction[0] / this.arcballRadius;
+        this.spherical.phi += direction[1] / this.arcballRadius;
 
         // Normalize the spherical coordinates
         this.spherical.theta = this.spherical.theta % (2 * Math.PI);
@@ -71,7 +72,7 @@ export class Arcball {
 
     onMouseWheel(event: WheelEvent) {
         this.spherical.radius -= event.deltaY * 0.01;
-        this.spherical.radius = Math.max(1.0, Math.min(100.0, this.spherical.radius)); 
+        this.spherical.radius = Math.max(1.0, Math.min(100.0, this.spherical.radius));
         this.update();
     }
 
@@ -80,16 +81,23 @@ export class Arcball {
         const newPosition = vec3.create();
         const offset = vec3.create();
         vec3.subtract(offset, this.target, this.cameraPosition);
-        vec3.rotateY(offset, offset, this.target, this.spherical.theta);
-        vec3.rotateX(offset, offset, this.target, this.spherical.phi);
+    
+        // Calculate rotation matrix
+        const rotationMatrix = mat4.create();
+        mat4.rotateY(rotationMatrix, rotationMatrix, this.spherical.theta);
+        mat4.rotateX(rotationMatrix, rotationMatrix, this.spherical.phi);
+    
+        // Rotate offset vector using rotation matrix
+        vec3.transformMat4(offset, offset, rotationMatrix);
+    
         vec3.normalize(offset, offset);
-        vec3.scale(offset, offset, this.spherical.radius); 
-        vec3.add(newPosition, this.target, offset); 
-
+        vec3.scale(offset, offset, this.spherical.radius);
+        vec3.add(newPosition, this.target, offset);
+    
         // Update camera
         this.camera.setPosition(newPosition);
         this.camera.setTarget(this.target);
-        this.camera.setUp(this.cameraUp);
+        // this.camera.setUp(this.cameraUp);
     }
 
 

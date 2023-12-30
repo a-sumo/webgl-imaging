@@ -72,7 +72,7 @@ export class Camera {
 
     setTarget(target: vec3): void {
         this.target = target;
-        // this.updateViewMatrix();
+        this.updateViewMatrix();
         // this.updateProjectionMatrix();
     }
 
@@ -81,7 +81,6 @@ export class Camera {
         this.updateViewMatrix();
     }
     updateViewMatrix() {
-        // Update the view matrix based on the quaternion
         const rotationMatrix = mat4.create();
         mat4.fromQuat(rotationMatrix, this.quaternion);
         mat4.lookAt(this.viewMatrix, this.position, this.target, this.up);
@@ -90,7 +89,9 @@ export class Camera {
     updateProjectionMatrix() {
         this.projectionMatrix = mat4.perspective(mat4.create(), this.fov, this.aspectRatio, this.near, this.far);
     }
-    // Add this method
+    getQuaternion(): quat {
+        return this.quaternion;
+    }
     setQuaternion(quaternion: quat): void {
         this.quaternion = quaternion;
         this.updateViewMatrix();
