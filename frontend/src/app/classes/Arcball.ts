@@ -1,4 +1,4 @@
-import { vec3, mat4, quat } from 'gl-matrix';
+import { vec2, vec3, mat4, quat } from 'gl-matrix';
 import { Camera } from './Camera';
 
 export class Arcball {
@@ -7,9 +7,14 @@ export class Arcball {
     cameraPosition: vec3;
     cameraUp: vec3;
     target: vec3;
-    spherical: { radius: number, phi: number, theta: number };
+    rotation: quat;
     arcballRadius: number;
     isMouseDown: boolean = false;
+
+    // Constants
+    private static readonly ROTATE_SPEED = 1.0;
+    private static readonly ZOOM_SPEED = 1.0;
+    private static readonly PAN_SPEED = 1.0;
 
     constructor(camera: Camera, canvas: HTMLCanvasElement) {
         this.camera = camera;
@@ -17,7 +22,7 @@ export class Arcball {
         this.cameraPosition = vec3.clone(camera.position);
         this.cameraUp = vec3.clone(camera.up);
         this.target = vec3.clone(camera.target);
-        this.spherical = { radius: vec3.distance(this.cameraPosition, this.target), phi: 0, theta: 0 };
+        this.rotation = quat.create();
         this.arcballRadius = vec3.distance(this.cameraPosition, this.target);
 
         this.init();
@@ -52,53 +57,35 @@ export class Arcball {
         }
 
         // Convert mouse movement to spherical coordinates
-        const dx = event.movementX * 0.01;
-        const dy = event.movementY * 0.01;
+        const dx = event.movementX * 0.01 * Arcball.ROTATE_SPEED;
+        const dy = event.movementY * 0.01 * Arcball.ROTATE_SPEED;
 
-        // Transform mouse movement vector from screen space to world space
-        const direction = vec3.transformQuat(vec3.create(), vec3.fromValues(dx, dy, 0), this.camera.getQuaternion());
+        // Create a quaternion from the mouse movement
+        const dQuat = quat.create();
+        quat.rotateY(dQuat, dQuat, dx);
+        quat.rotateX(dQuat, dQuat, dy);
 
-        // Update spherical coordinates based on direction of mouse movement
-        this.spherical.theta += direction[0] / this.arcballRadius;
-        this.spherical.phi += direction[1] / this.arcballRadius;
-
-        // Normalize the spherical coordinates
-        this.spherical.theta = this.spherical.theta % (2 * Math.PI);
-        this.spherical.phi = Math.max(Math.min(this.spherical.phi, Math.PI), -Math.PI);
+        // Multiply the current rotation by the delta quaternion
+        quat.multiply(this.rotation, this.rotation, dQuat);
 
         this.update();
     }
 
-
     onMouseWheel(event: WheelEvent) {
-        this.spherical.radius -= event.deltaY * 0.01;
-        this.spherical.radius = Math.max(1.0, Math.min(100.0, this.spherical.radius));
+        const zoomAmount = event.deltaY * 0.01 * Arcball.ZOOM_SPEED;
+        this.arcballRadius = Math.max(1.0, Math.min(100.0, this.arcballRadius - zoomAmount));
         this.update();
     }
 
     update() {
-        // Calculate new camera position, target, and up vector
-        const newPosition = vec3.create();
-        const offset = vec3.create();
-        vec3.subtract(offset, this.target, this.cameraPosition);
-    
-        // Calculate rotation matrix
-        const rotationMatrix = mat4.create();
-        mat4.rotateY(rotationMatrix, rotationMatrix, this.spherical.theta);
-        mat4.rotateX(rotationMatrix, rotationMatrix, this.spherical.phi);
-    
-        // Rotate offset vector using rotation matrix
-        vec3.transformMat4(offset, offset, rotationMatrix);
-    
-        vec3.normalize(offset, offset);
-        vec3.scale(offset, offset, this.spherical.radius);
-        vec3.add(newPosition, this.target, offset);
-    
+        // Calculate new camera position
+        const offset = vec3.fromValues(0, 0, this.arcballRadius);
+        vec3.transformQuat(offset, offset, this.rotation);
+        vec3.add(this.cameraPosition, this.target, offset);
+
         // Update camera
-        this.camera.setPosition(newPosition);
+        this.camera.setPosition(this.cameraPosition);
         this.camera.setTarget(this.target);
-        // this.camera.setUp(this.cameraUp);
+        this.camera.setUp(this.cameraUp);
     }
-
-
 }

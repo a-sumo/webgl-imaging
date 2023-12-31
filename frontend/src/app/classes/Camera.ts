@@ -13,24 +13,6 @@ export class Camera {
     public far: number;
     public zoom: number;
     public quaternion: quat;
-    // Mouse control properties
-    private rotateStart: vec2;
-    private rotateEnd: vec2;
-    private rotateDelta: vec2;
-
-    // For panning
-    private panStart: vec2;
-    private panEnd: vec2;
-    private panDelta: vec2;
-
-    // Constants
-    private static readonly ROTATE_SPEED = 1.0;
-    private static readonly ZOOM_SPEED = 1.0;
-    private static readonly PAN_SPEED = 1.0;
-
-    private lastPosition: vec3;
-    private lastTarget: vec3;
-    private lastUp: vec3;
 
     constructor(fov: number, aspectRatio: number, near: number, far: number) {
         this.fov = fov;
@@ -47,43 +29,45 @@ export class Camera {
         this.rotation = quat.create();
 
         this.zoom = 1.0;
-
-        this.rotateStart = vec2.create();
-        this.rotateEnd = vec2.create();
-        this.rotateDelta = vec2.create();
-
-        this.panStart = vec2.create();
-        this.panEnd = vec2.create();
-        this.panDelta = vec2.create();
-
-        this.lastPosition = vec3.clone(this.position);
-        this.lastTarget = vec3.clone(this.target);
-        this.lastUp = vec3.clone(this.up);
         this.quaternion = quat.create();
 
-        this.updateViewMatrix();
-        this.updateProjectionMatrix();
+        // this.updateViewMatrix();
+        // this.updateProjectionMatrix();
 
     }
     setPosition(position: vec3): void {
         this.position = position;
         this.updateViewMatrix();
+        this.updateProjectionMatrix();
     }
 
     setTarget(target: vec3): void {
         this.target = target;
         this.updateViewMatrix();
-        // this.updateProjectionMatrix();
+        this.updateProjectionMatrix();
     }
 
     setUp(up: vec3): void {
         this.up = up;
         this.updateViewMatrix();
+        this.updateProjectionMatrix();
     }
+
     updateViewMatrix() {
+        const direction = vec3.create();
+        vec3.subtract(direction, this.position, this.target);
+        vec3.normalize(direction, direction);
+
+        const right = vec3.create();
+        vec3.cross(right, this.up, direction);
+        vec3.normalize(right, right);
+
+        const up = vec3.create();
+        vec3.cross(up, direction, right);
+
         const rotationMatrix = mat4.create();
         mat4.fromQuat(rotationMatrix, this.quaternion);
-        mat4.lookAt(this.viewMatrix, this.position, this.target, this.up);
+        mat4.lookAt(this.viewMatrix, this.position, this.target, up);
         mat4.multiply(this.viewMatrix, this.viewMatrix, rotationMatrix);
     }
     updateProjectionMatrix() {
@@ -96,7 +80,9 @@ export class Camera {
         this.quaternion = quaternion;
         this.updateViewMatrix();
     }
-
-
+    setZoom(zoom: number): void {
+        this.zoom = zoom;
+        this.updateProjectionMatrix();
+    }
 }
 
