@@ -4,14 +4,13 @@ import DataArray from './dataArray';
 import Data3DTexture from './data3DTexture';
 import { Object3D } from './Object3D';
 import { Geometry } from './Geometry';
-import { Material } from './material';
-import { Light } from './light';
 import {
     extractSlice, generateNoiseTexture, generateTFData,
     initializeTFTexture, initializeSphereTexture, buildShaders
 } from './utils';
 import { Camera } from './Camera';
 import { Arcball } from './Arcball';
+import { testWindingOrder } from '../test/geometryTest';
 
 interface Keypoint {
     id: number; // Unique id of the keypoint
@@ -81,8 +80,7 @@ export class Viewer {
             alert('Unable to initialize WebGL. Your browser or machine may not support it.');
             return;
         }
-        this.gl.disable(this.gl.CULL_FACE);
-        this.gl.frontFace(this.gl.CW);
+        this.gl.enable(this.gl.CULL_FACE);
         this.gl.cullFace(this.gl.FRONT);
         // enable depth test
         // this.gl.enable(this.gl.DEPTH_TEST);
@@ -91,8 +89,6 @@ export class Viewer {
         // enable blending color from src to dst
         this.gl.enable(this.gl.BLEND);
         this.gl.blendFunc(this.gl.SRC_ALPHA, this.gl.ONE_MINUS_SRC_ALPHA);
-        this.gl.blendEquation(this.gl.FUNC_ADD);
-        this.gl.blendFuncSeparate(this.gl.SRC_ALPHA, this.gl.ONE_MINUS_SRC_ALPHA, this.gl.ONE, this.gl.ONE_MINUS_SRC_ALPHA);
         // Handle WebGL context loss
         this.canvas.addEventListener('webglcontextlost', (event) => {
             event.preventDefault();
@@ -102,13 +98,16 @@ export class Viewer {
 
     initgl(dataArray: DataArray): boolean {
         const mesh = new CubeMeshData();
+        console.log("mesh", mesh);
         if (!mesh) {
             alert('Unable to set mesh data.');
         }
-        const vertices = mesh.vertices.flat();
-        const indices = mesh.faces.flat();
-        const normals = mesh.normals.flat();
-        const uvs = mesh.uvs.flat();
+        const vertices = mesh.vertices;
+        const indices = mesh.indices;
+        const normals = mesh.normals;
+        const isValidGeo = testWindingOrder(indices, vertices);
+        console.log("isValidGeo", isValidGeo);
+        const uvs = mesh.uvs;
         const cubeGeo = new Geometry(this.gl, vertices, indices, normals, uvs);
 
         this.cube = new Object3D(this.gl, cubeGeo);
@@ -128,7 +127,7 @@ export class Viewer {
             console.error("[viewer.ts] Unable to initialize the Camera");
             throw new Error("Unable to initialize the Camera");
         }
-        this.camera.setPosition(vec3.fromValues(0, 0, -2.0));
+        this.camera.setPosition(vec3.fromValues(2.0, 2.0, 0.0));
         this.camera.setTarget(vec3.fromValues(0., 0., 0.));
         this.camera.setUp(vec3.fromValues(0, 1, 0));
         this.controls = new Arcball(this.camera, this.canvas);
@@ -145,9 +144,6 @@ export class Viewer {
 
     }
     initUniforms(program: any, dataArray: DataArray): boolean {
-        // let positionLocation = this.gl.getAttribLocation(program, "a_Position");
-        // this.gl.vertexAttribPointer(positionLocation, 3, this.gl.FLOAT, false, 0, 0);
-        // this.gl.enableVertexAttribArray(positionLocation);
         // Get uniform locations
         this.locations.uniforms.u_modelViewMatrix = this.gl.getUniformLocation(program, 'u_modelViewMatrix');
         this.locations.uniforms.u_modelMatrix = this.gl.getUniformLocation(program, 'u_modelMatrix');
@@ -199,7 +195,7 @@ export class Viewer {
         this.gl.uniformMatrix4fv(this.locations.uniforms.u_projectionMatrix, false, this.camera.projectionMatrix);
         // Initialize projectionMatrix Inverse
         const projectionInverse = mat4.create();
-        mat4.invert(this.camera.projectionMatrix, projectionInverse)
+        mat4.invert(projectionInverse, this.camera.projectionMatrix);
         this.gl.uniformMatrix4fv(this.locations.uniforms.u_projectionInverse, false, projectionInverse);
         // Initialize viewDirWorldSpace
         const viewDirWorldSpace = vec3.create();
@@ -227,15 +223,16 @@ export class Viewer {
         const minMax = dataArraySliceT.computeMinMax();
         const data3DTexture = Data3DTexture.fromDataArrayAtTime(dataArray, 0);
         data3DTexture.normalizeData(minMax.min, minMax.max); // Normalize data before uploading
-        const dataTex = data3DTexture.uploadTexture(this.gl);
-        // const dataTex = initializeSphereTexture(this.gl, 32, 32, 32,0.5);
+        const dataTex = data3DTexture.uploadTexture(this.gl, 0);
+        // Debug with sphere texture
+        // const dataTex = initializeSphereTexture(this.gl, 32, 32, 32, 0.5, 0);
         if (!dataTex) {
             console.error("[viewer.ts] Unable to upload data texture.");
             return false;
         }
         const textureUnit = 0;
         this.dataTexture = dataTex;
-        this.gl.activeTexture(this.gl.TEXTURE0 + textureUnit);
+        this.gl.activeTexture(this.gl.TEXTURE0);
         this.gl.bindTexture(this.gl.TEXTURE_3D, this.dataTexture);
 
         this.gl.uniform1i(this.locations.uniforms.u_DataTex, textureUnit);
@@ -248,18 +245,17 @@ export class Viewer {
         }
         const tfWidth = 128;
         const tfData = generateTFData(tfWidth, this.keypoints);
-        this.tfTexture = initializeTFTexture(this.gl, tfWidth, 1,  tfData);
+        this.tfTexture = initializeTFTexture(this.gl, tfWidth, 1, tfData, 1);
         this.gl.activeTexture(this.gl.TEXTURE0 + textureUnit + 1);
-        this.gl.bindTexture(this.gl.TEXTURE_2D, this.tfTexture);
         this.gl.uniform1i(this.locations.uniforms.u_TFTex, textureUnit + 1);
 
         // Noise texture
-        const noiseDimX = 512;
-        const noiseDimY = 512;
-        const noiseTex = generateNoiseTexture(this.gl, noiseDimX, noiseDimY);
+        const noiseDimX = 128;
+        const noiseDimY = 128;
+        generateNoiseTexture(this.gl, noiseDimX, noiseDimY, 2);
         this.gl.activeTexture(this.gl.TEXTURE0 + textureUnit + 2);
-        this.gl.bindTexture(this.gl.TEXTURE_2D, noiseTex);
         this.gl.uniform1i(this.locations.uniforms.u_NoiseTex, textureUnit + 2);
+        // Restore the previous active texture unit
         return true;
     }
     display() {
@@ -271,26 +267,31 @@ export class Viewer {
         this.gl.bindVertexArray(this.cube.getGeometry().getVao());
         // Draw Cube
         this.gl.drawElements(this.gl.TRIANGLES, this.cube.getGeometry().getIndexCount(), this.gl.UNSIGNED_SHORT, 0);
-        // this.gl.getError(); // Check for errors after each WebGL call
+        this.gl.getError(); // Check for errors after each WebGL call
         this.gl.bindVertexArray(null);
 
     }
     updateTextures() {
-        // this.gl.useProgram(this.shaderProgram);
-
-        const textureUnit = 0;
-        // Delete old texture if it exists
+        // Save the current active texture unit
+        const previousTextureUnit = this.gl.getParameter(this.gl.ACTIVE_TEXTURE);
+        // Delete old transfer function texture if it exists
         if (this.tfTexture) {
+            console.log("deleting old tf texture");
             this.gl.deleteTexture(this.tfTexture);
         }
         const tfWidth = 128;
         const tfData = generateTFData(tfWidth, this.keypoints);
-        this.tfTexture = initializeTFTexture(this.gl, tfWidth, 1,  tfData);
-        this.gl.activeTexture(this.gl.TEXTURE0 + textureUnit + 1);
-        this.gl.bindTexture(this.gl.TEXTURE_2D, this.tfTexture);
-        this.gl.uniform1i(this.locations.uniforms.u_TFTex, textureUnit + 1);
+        this.tfTexture = initializeTFTexture(this.gl, tfWidth, 1, tfData, 1);
+        this.gl.activeTexture(this.gl.TEXTURE0 + 1);
+        this.gl.uniform1i(this.locations.uniforms.u_TFTex, 1);
+        console.log("active texture unit before reset", this.gl.getParameter(this.gl.ACTIVE_TEXTURE));
+        // Restore the previous active texture unit
+        this.gl.activeTexture(previousTextureUnit);
+        console.log("active texture unit after reset ", this.gl.getParameter(this.gl.ACTIVE_TEXTURE));
+
         this.display();
     }
+
     updateUniforms() {
 
         if (!this.cube) {
@@ -327,7 +328,7 @@ export class Viewer {
         this.gl.uniformMatrix4fv(this.locations.uniforms.u_projectionMatrix, false, this.camera.projectionMatrix);
         // Update projectionMatrix Inverse
         const projectionInverse = mat4.create();
-        mat4.invert(this.camera.projectionMatrix, projectionInverse)
+        mat4.invert(projectionInverse, this.camera.projectionMatrix)
         this.gl.uniformMatrix4fv(this.locations.uniforms.u_projectionInverse, false, projectionInverse);
         // Update viewDirWorldSpace 
         const viewDirWorldSpace = vec3.create();
@@ -340,6 +341,23 @@ export class Viewer {
     }
     updateTransferFunction(keypoints: Keypoint[]) {
         this.keypoints = keypoints;
+        // Delete old transfer function texture if it exists
+        // if (this.tfTexture) {
+        //     console.log("deleting old tf texture");
+        //     this.gl.deleteTexture(this.tfTexture);
+        // }
+        // const tfWidth = 128;
+        // const tfData = generateTFData(tfWidth, this.keypoints);
+        // this.tfTexture = initializeTFTexture(this.gl, tfWidth, 1, tfData, 1);
+        // this.gl.activeTexture(this.gl.TEXTURE0 + 1);
+        // // Ensure the correct program is active before setting the uniform value
+        // this.gl.useProgram(this.shaderProgram);
+        // this.gl.uniform1i(this.locations.uniforms.u_TFTex, 1);
+        // // Restore the previous active texture unit
+        // console.log("active texture unit before reset", this.gl.getParameter(this.gl.ACTIVE_TEXTURE));
+        // // Restore the previous active texture unit
+        // console.log("active texture unit after reset ", this.gl.getParameter(this.gl.ACTIVE_TEXTURE));
+        // this.display();
         this.updateTextures();
     }
     init(dataArray: DataArray) {
@@ -352,8 +370,17 @@ export class Viewer {
         if (!this.valid) {
             return;
         }
-        this.render(); 
+        this.render();
     }
+    // update(dataArray: DataArray) {
+    //     if (!dataArray) {
+    //         alert('Unable to read data array.');
+    //         return;
+    //     }
+    //     this.valid = this.initgl(dataArray);
+    //     if (!this.valid) {
+    //         return;
+    //     }
     setWindowCenter(value: number | null) {
         if (value !== null) {
             this.minMaxVal[0] = value - 0.5;
@@ -387,8 +414,9 @@ const vertexShaderSource = `#version 300 es
 precision lowp float;
 precision lowp sampler3D;
 
-in vec3 a_Position;
-in vec2 a_UV;
+layout(location = 0) in vec3 a_Position;
+layout(location = 1) in vec3 a_Normal;
+layout(location = 2) in vec2 a_UV;
 
 uniform mat4 u_modelViewMatrix;
 uniform mat4 u_projectionMatrix;
@@ -396,7 +424,7 @@ uniform mat4 u_projectionMatrix;
 out vec4 v_Position;
 out vec4 v_vertexLocal;
 out vec2 v_UV;
-
+out vec3 v_Normal;
 void main() {
   // vertex position in clip space
   v_Position = u_projectionMatrix * u_modelViewMatrix * vec4(a_Position, 1.0);
@@ -414,7 +442,7 @@ const fragmentShaderSource = `#version 300 es
 precision lowp float;
 precision lowp sampler3D;
 #define MAX_NUM_STEPS 512.0
-#define JITTER_FACTOR 0.0
+#define JITTER_FACTOR 10.0
 #define OPACITY_THRESHOLD (1.0 - 1.0 / 255.0)
 struct RayInfo
 {
@@ -435,6 +463,7 @@ struct RaymarchInfo
 in vec4 v_Position;
 in vec4 v_vertexLocal;
 in vec2 v_UV;
+in vec3 v_Normal;
 out vec4 fragColor;
 
 uniform mat4 u_modelViewMatrix;
@@ -476,7 +505,7 @@ float getNoise(vec2 uv) {
     // if (any(lessThan(uv, vec2(0.0))) || any(greaterThan(uv, vec2(1.0)))) {
     //     return 0.0;
     // } else {
-        return texture(u_NoiseTex, uv).r;
+        return texture(u_NoiseTex, vec2(uv.x, uv.y)).r;
     // }
 }
 
@@ -566,7 +595,7 @@ RayInfo getRayBack2Front(vec3 vertexLocal)
    RayInfo ray;
    ray.direction = getViewRayDir(vertexLocal);
    // get ray direction in object space
-   ray.startPos = vertexLocal + vec3(0.5f, 0.5f, 0.5f);
+   ray.startPos = vertexLocal + vec3(0.5f);
    // Find intersections with axis aligned bounding box
    ray.aabbInters = intersectAABB(ray.startPos, ray.direction, vec3(0.0), vec3(1.0));
 
@@ -612,7 +641,7 @@ void main() {
  
     // Create a small random offset in order to remove artifacts
     // Change the position from clipspace coordinates [-1 ; 1] to normalized device coordinates [0 ; 1]
-    // ray.startPos += (JITTER_FACTOR * ray.direction * raymarchInfo.stepSize);
+    ray.startPos += (JITTER_FACTOR * ray.direction * raymarchInfo.stepSize) * getNoise(v_UV);
 
     vec4 col = vec4(0.0f, 0.0f, 0.0f, 0.0f);
     for (int iStep = 0; iStep < raymarchInfo.numSteps; iStep++)
@@ -639,12 +668,10 @@ void main() {
             break;
         }
     }
-    vec4 clipPos =  u_projectionMatrix * u_modelViewMatrix * vec4(v_vertexLocal.xyz, 1.0f);
-    // float depth = (clipPos.z / clipPos.w) * 0.5 + 0.5;
-    // gl_FragDepth = 0.0;
     // Write fragment output
     fragColor = vec4(col.rgb, col.a);
-    // fragColor = vec4(ray.direction, 1.0);
-    
+    // fragColor = vec4( vec3(texture(u_NoiseTex, vec2(v_UV.x, v_UV.y)).r ), 1.0);
+    // fragColor = vec4( vec3(v_UV.x, 1.0, 1.0), 1.0);
+
  }
 `;

@@ -45,6 +45,7 @@
     position: relative;
     align-content: center;
     width: 80px;
+    margin-bottom: 10px;
     height: 40px;
     padding: 5px;
 }

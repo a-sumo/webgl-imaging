@@ -26,7 +26,7 @@ const ViewerComponent = () => {
   };
 
   const getNrrdData = (): Promise<ArrayBuffer> => {
-    const filePath = '/PDA_CT.nrrd';
+    const filePath = '/MR-head.nrrd';
     return fetch(filePath)
       .then(response => {
         if (!response.ok) {
@@ -53,7 +53,7 @@ const ViewerComponent = () => {
         const dataArray = nrrdLoader.parse(arrayBuffer);
         viewer.init(dataArray);
         setIsViewInit(true);
-        viewer.updateTransferFunction(keypoints);
+        // viewer.updateTransferFunction(keypoints);
 
       }).catch(error => {
         console.error('Failed to fetch NRRD data:', error);
@@ -63,13 +63,6 @@ const ViewerComponent = () => {
     return () => {
     };
   }, []);
-
-  const updateKeypoints = (newKeypoints: Keypoint[]) => {
-    if (isViewInit && view) {
-      setKeypoints(newKeypoints);
-      view.updateTransferFunction(newKeypoints);
-    }
-  };
 
   return <div className="viewerContainer">
     <canvas ref={canvasRef} width="400" height="400" />

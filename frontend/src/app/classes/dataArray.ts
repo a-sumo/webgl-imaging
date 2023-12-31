@@ -53,7 +53,7 @@ export default class DataArray {
             min = arr[len] < min ? arr[len] : min;
 
         }
-        return {'min': min, 'max' : max};
+        return { 'min': min, 'max': max };
     }
     public get3DSliceAtTime(t: number): DataArray {
         const sliceSize = this.xLength * this.yLength * this.zLength;
@@ -67,6 +67,22 @@ export default class DataArray {
             }
         }
         return new DataArray(sliceData, this.xLength, this.yLength, this.zLength, 1, this.dataType);
+    }
+    static createZeroFilled(xLength: number, yLength: number, zLength: number, tLength: number, dataType: string): DataArray {
+        const size = xLength * yLength * zLength * tLength;
+        let data;
+        switch (dataType) {
+            case 'float32':
+                data = new Float32Array(size);
+                break;
+            case 'int32':
+                data = new Int32Array(size);
+                break;
+            // Add more cases here if you have other data types
+            default:
+                throw new Error(`Unsupported data type: ${dataType}`);
+        }
+        return new DataArray(data, xLength, yLength, zLength, tLength, dataType);
     }
 }
 

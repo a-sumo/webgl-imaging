@@ -1,56 +1,181 @@
-export class CubeMeshData {
-    normals: number[][];
-    vertices: number[][];
-    faces: number[][];
-    uvs: number[][];
-    constructor() {
-        this.vertices = [
-            [-0.5, -0.5, -0.5], // 0
-            [0.5, -0.5, -0.5], // 1
-            [0.5, 0.5, -0.5], // 2
-            [-0.5, 0.5, -0.5], // 3
-            [-0.5, -0.5, 0.5], // 4
-            [0.5, -0.5, 0.5], // 5
-            [0.5, 0.5, 0.5],  // 6
-            [-0.5, 0.5, 0.5]  // 7
-        ];
-        
-        this.faces = [
-            // Each quad face is split into two triangle faces
-            [0, 1, 2], [0, 2, 3], // Front face
-            [4, 6, 5], [4, 7, 6], // Back face
-            [1, 5, 6], [1, 6, 2], // Right face
-            [0, 3, 7], [0, 7, 4], // Left face
-            [3, 2, 6], [3, 6, 7], // Top face
-            [0, 4, 5], [0, 5, 1]  // Bottom face
-        ];
-        this.normals = [
-            [0, 0, -1], // Front face
-            [0, 0, -1], // Front face
-            [0, 0, 1], // Back face,
-            [0, 0, 1], // Back face
-            [1, 0, 0], // Right face,
-            [1, 0, 0], // Right face
-            [0, 1, 0], // Top face,
-            [0, 1, 0], // Top face
-            [-1, 0, 0], // Left face,
-            [-1, 0, 0], // Left face
-            [0, -1, 0], // Bottom face,
-            [0, -1, 0] // Bottom face
-        ];
-        this.uvs = [
-            // Front face
-            [0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0],
-            // Back face
-            [0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0],
-            // Right face
-            [0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0],
-            // Left face
-            [0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0],
-            // Top face
-            [0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0],
-            // Bottom face
-            [0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0]
-        ];
+import { vec3 } from 'gl-matrix';
+
+interface Vector3 {
+    [key: string]: number;
+    x: number;
+    y: number;
+    z: number;
+}
+
+class Vector3 {
+    public x: number;
+    public y: number;
+    public z: number;
+    constructor(x = 0, y = 0, z = 0) {
+        this.x = x;
+        this.y = y;
+        this.z = z;        
     }
+}
+export class CubeMeshData {
+    vertices: number[];
+    normals: number[];
+    indices: number[];
+    uvs: number[];
+    parameters: any;    
+	constructor( width = 1, height = 1, depth = 1, widthSegments = 1, heightSegments = 1, depthSegments = 1 ) {
+
+
+		this.parameters = {
+			width: width,
+			height: height,
+			depth: depth,
+			widthSegments: widthSegments,
+			heightSegments: heightSegments,
+			depthSegments: depthSegments
+		};
+
+		const scope = this;
+
+		// segments
+
+		widthSegments = Math.floor( widthSegments );
+		heightSegments = Math.floor( heightSegments );
+		depthSegments = Math.floor( depthSegments );
+
+		// buffers
+
+		const indices: any = [];
+		const vertices: any = [];
+		const normals: any = [];
+		const uvs: any = [];
+
+		// helper variables
+
+		let numberOfVertices = 0;
+		let groupStart = 0;
+
+		// build each side of the box geometry
+
+		buildPlane( 'z', 'y', 'x', - 1, - 1, depth, height, width, depthSegments, heightSegments, 0 ); // px
+		buildPlane( 'z', 'y', 'x', 1, - 1, depth, height, - width, depthSegments, heightSegments, 1 ); // nx
+		buildPlane( 'x', 'z', 'y', 1, 1, width, depth, height, widthSegments, depthSegments, 2 ); // py
+		buildPlane( 'x', 'z', 'y', 1, - 1, width, depth, - height, widthSegments, depthSegments, 3 ); // ny
+		buildPlane( 'x', 'y', 'z', 1, - 1, width, height, depth, widthSegments, heightSegments, 4 ); // pz
+		buildPlane( 'x', 'y', 'z', - 1, - 1, width, height, - depth, widthSegments, heightSegments, 5 ); // nz
+
+		// build geometry
+
+		// this.setIndex( indices );
+		// this.setAttribute( 'position', new Float32BufferAttribute( vertices, 3 ) );
+		// this.setAttribute( 'normal', new Float32BufferAttribute( normals, 3 ) );
+		// this.setAttribute( 'uv', new Float32BufferAttribute( uvs, 2 ) );
+
+		function buildPlane( u: string, v: string, w: string, udir: number, vdir: number, width: number, height: number, depth: number, gridX: number, gridY: number, materialIndex: number ) {
+            // const componentToIndex: any = { 'x': 0, 'y': 1, 'z': 2 };
+            // const uIndex = componentToIndex[u];
+            // const vIndex = componentToIndex[v];
+            // const wIndex = componentToIndex[w];
+			const segmentWidth = width / gridX;
+			const segmentHeight = height / gridY;
+
+			const widthHalf = width / 2;
+			const heightHalf = height / 2;
+			const depthHalf = depth / 2;
+
+			const gridX1 = gridX + 1;
+			const gridY1 = gridY + 1;
+
+			let vertexCounter = 0;
+			let groupCount = 0;
+
+			const vector = new Vector3();
+
+			// generate vertices, normals and uvs
+
+			for ( let iy = 0; iy < gridY1; iy ++ ) {
+
+				const y = iy * segmentHeight - heightHalf;
+
+				for ( let ix = 0; ix < gridX1; ix ++ ) {
+
+					const x = ix * segmentWidth - widthHalf;
+
+					// set values to correct vector component
+
+					vector[ u ] = x * udir;
+					vector[ v ] = y * vdir;
+					vector[ w ] = depthHalf;
+
+					// now apply vector to vertex buffer
+
+					vertices.push( vector.x, vector.y, vector.z );
+                    
+					// set values to correct vector component
+
+					vector[ u ] = 0;
+					vector[ v ] = 0;
+					vector[ w ] = depth > 0 ? 1 : - 1;
+
+					// now apply vector to normal buffer
+
+					normals.push( vector.x, vector.y, vector.z);
+
+					// uvs
+
+					uvs.push( ix / gridX );
+					uvs.push( 1 - ( iy / gridY ) );
+
+					// counters
+
+					vertexCounter += 1;
+
+				}
+
+			}
+
+			// indices
+
+			// 1. you need three indices to draw a single face
+			// 2. a single segment consists of two faces
+			// 3. so we need to generate six (2*3) indices per segment
+
+			for ( let iy = 0; iy < gridY; iy ++ ) {
+
+				for ( let ix = 0; ix < gridX; ix ++ ) {
+
+					const a = numberOfVertices + ix + gridX1 * iy;
+					const b = numberOfVertices + ix + gridX1 * ( iy + 1 );
+					const c = numberOfVertices + ( ix + 1 ) + gridX1 * ( iy + 1 );
+					const d = numberOfVertices + ( ix + 1 ) + gridX1 * iy;
+
+					// faces
+
+					indices.push( a, b, d );
+					indices.push( b, c, d );
+                    console.log('a: ' + a + ' b: ' + b + ' c: ' + c + ' d: ' + d);
+					// increase counter
+
+					groupCount += 6;
+
+				}
+
+			}
+
+			// calculate new start value for groups
+
+			groupStart += groupCount;
+
+			// update total number of vertices
+
+			numberOfVertices += vertexCounter;
+
+		}
+
+        this.indices = indices;
+        this.vertices = vertices;
+        this.normals = normals;
+        this.uvs = uvs;
+	}
+
 }

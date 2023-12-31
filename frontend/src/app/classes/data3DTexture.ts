@@ -51,13 +51,14 @@ export default class Data3DTexture {
         return dataTexture;
     }
 
-    public uploadTexture(gl: WebGL2RenderingContext): WebGLTexture | null {
+    public uploadTexture(gl: WebGL2RenderingContext, textureUnit: number): WebGLTexture | null {
         let { data, width, height, depth, type } = this.textureData;
-
+        const previousTextureUnit = gl.getParameter(gl.ACTIVE_TEXTURE);
         const texture = gl.createTexture();
         if (!texture) {
             throw new Error('Failed to create texture');
         }
+        gl.activeTexture(gl.TEXTURE0 + textureUnit);
         gl.bindTexture(gl.TEXTURE_3D, texture);
 
         gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, this.flipY);
@@ -103,6 +104,7 @@ export default class Data3DTexture {
         gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
         gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_WRAP_R, gl.CLAMP_TO_EDGE);
 
+        gl.activeTexture(previousTextureUnit);
         return texture;
     }
 }
