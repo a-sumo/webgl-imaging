@@ -191,8 +191,6 @@ function hexToRGBA(hex: string): number[] {
 export function generateTFData(width: number, keypoints: Keypoint[]): Uint8Array {
     const data = new Uint8Array(width * 4); // 4 for RGBA channels
 
-    keypoints.sort((a, b) => a.x - b.x); // Ensure keypoints are in ascending order
-
     for (let i = 0; i < width; i++) {
         const position = i / width;
 
