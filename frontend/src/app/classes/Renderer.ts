@@ -7,6 +7,7 @@ export class Renderer {
     private gl: WebGL2RenderingContext;
     private locations: { [name: string]: WebGLUniformLocation } = {};
     private currentProgram: WebGLProgram | null = null;
+    private shaderPrograms: { [key: string]: WebGLProgram } = {};
 
     constructor(gl: WebGL2RenderingContext) {
         this.gl = gl;
@@ -22,7 +23,7 @@ export class Renderer {
             console.warn(`Uniform "${name}" is not defined.`);
             return;
         }
-    
+
         switch (type) {
             case '1f':
                 this.gl.uniform1f(location, value);
@@ -68,7 +69,55 @@ export class Renderer {
                 break;
         }
     }
+    private buildShaders(vertexShaderSource: string, fragmentShaderSource: string): WebGLProgram | false {
+        let vertexShader = this.compileShader(vertexShaderSource, this.gl.VERTEX_SHADER);
+        let fragmentShader = this.compileShader(fragmentShaderSource, this.gl.FRAGMENT_SHADER);
+        if (!vertexShader || !fragmentShader) {
+            return false;
+        }
+        let shaderProgram = this.gl.createProgram();
+        if (!shaderProgram) {
+            return false;
+        }
+        this.gl.attachShader(shaderProgram, vertexShader);
+        this.gl.attachShader(shaderProgram, fragmentShader);
+        this.gl.linkProgram(shaderProgram);
+        if (!this.gl.getProgramParameter(shaderProgram, this.gl.LINK_STATUS) && !this.gl.isContextLost()) {
+            console.error("Unable to link shader program:", this.gl.getProgramInfoLog(shaderProgram));
+            return false;
+        }
+        this.gl.useProgram(shaderProgram);
+        return shaderProgram;
+    }
 
+    private compileShader(source: string, type: number): WebGLShader {
+        const shader = this.gl.createShader(type);
+        if (!shader) {
+            throw new Error("Unable to create shader");
+        }
+        this.gl.shaderSource(shader, source);
+        this.gl.compileShader(shader);
+        return shader;
+    }
+
+    private setupAttribute(program: WebGLProgram, name: string, data: number[], size: number): void {
+        const buffer = this.createBuffer(this.gl, data);
+        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, buffer);
+        const location = this.gl.getAttribLocation(program, name);
+        this.gl.enableVertexAttribArray(location);
+        this.gl.vertexAttribPointer(location, size, this.gl.FLOAT, false, 0, 0);
+    }
+
+    createShaderProgram(vertexShaderSource: string, fragmentShaderSource: string, name: string): void {
+        const program = this.buildShaders(vertexShaderSource, fragmentShaderSource);
+        if (program !== false) {
+            this.shaderPrograms[name] = program;
+        }
+    }
+
+    getShaderProgram(name: string): WebGLProgram | undefined {
+        return this.shaderPrograms[name];
+    }
     render(scene: Scene, camera: Camera) {
         // Clear the canvas
         this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
@@ -122,27 +171,14 @@ export class Renderer {
         const geometry = object.getGeometry();
         const program = object.getShaderProgram();
 
-        // Set up the vertex attribute
-        const vertexBuffer = this.createBuffer(this.gl, geometry.vertices);
-        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, vertexBuffer);
-        this.gl.enableVertexAttribArray(this.gl.getAttribLocation(program, 'position'));
-        this.gl.vertexAttribPointer(this.gl.getAttribLocation(program, 'position'), 3, this.gl.FLOAT, false, 0, 0);
+        // Set up the attributes
+        this.setupAttribute(program, 'position', geometry.vertices, 3);
+        this.setupAttribute(program, 'normal', geometry.normals, 3);
+        this.setupAttribute(program, 'uv', geometry.uvs, 2);
 
         // Set up the index attribute
         const indexBuffer = this.createBuffer(this.gl, geometry.indices, this.gl.ELEMENT_ARRAY_BUFFER);
         this.gl.bindBuffer(this.gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
-
-        // Set up the normal attribute
-        const normalBuffer = this.createBuffer(this.gl, geometry.normals);
-        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, normalBuffer);
-        this.gl.enableVertexAttribArray(this.gl.getAttribLocation(program, 'normal'));
-        this.gl.vertexAttribPointer(this.gl.getAttribLocation(program, 'normal'), 3, this.gl.FLOAT, false, 0, 0);
-
-        // Set up the UV attribute
-        const uvBuffer = this.createBuffer(this.gl, geometry.uvs);
-        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, uvBuffer);
-        this.gl.enableVertexAttribArray(this.gl.getAttribLocation(program, 'uv'));
-        this.gl.vertexAttribPointer(this.gl.getAttribLocation(program, 'uv'), 2, this.gl.FLOAT, false, 0, 0);
 
         // Unbind the VAO
         this.gl.bindVertexArray(null);
@@ -151,4 +187,5 @@ export class Renderer {
         object.setVAO(vao);
         return vao;
     }
+
 }
