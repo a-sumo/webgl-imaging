@@ -138,8 +138,7 @@ export function generateNoiseTexture(gl: WebGL2RenderingContext, width: number, 
     for (let i = 0; i < width * height; i++) {
         noiseData[i] = Math.random() * 255; // Random value between 0 and 255
     }
-    console.log("width, height", width, height);
-    console.log("noiseData", noiseData);
+
     gl.texImage2D(
         gl.TEXTURE_2D,
         0, // level

@@ -153,7 +153,6 @@ export class BoxBufferGeometry {
 
 					indices.push( a, b, d );
 					indices.push( b, c, d );
-                    console.log('a: ' + a + ' b: ' + b + ' c: ' + c + ' d: ' + d);
 					// increase counter
 
 					groupCount += 6;
