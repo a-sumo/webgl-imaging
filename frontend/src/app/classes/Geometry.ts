@@ -90,7 +90,9 @@ export class Geometry {
     getIndexCount() {
         return this.indexCount;
     }
-
+    get vertexCount(): number {
+        return this.vertices.length / 3;
+    }
     getVao() {
         return this.vao;
     }
