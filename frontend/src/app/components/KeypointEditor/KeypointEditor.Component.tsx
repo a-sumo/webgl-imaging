@@ -39,23 +39,24 @@ const KeypointEditorComponent: React.FC<KeypointEditorProps> = ({ keypoints, set
             return;
         }
         gradientSvgRef.current.innerHTML = '';
-        keypoints.sort((a, b) => a.x - b.x);
-        const leftEdgePoint = { id: -1, x: 0, color: keypoints[0].color, alpha: keypoints[0].alpha };
+
+        // Draw the left edge point
+        const leftEdgePoint = { id: 0, x: 0, color: keypoints[0].color, alpha: keypoints[0].alpha };
+        drawGradient(leftEdgePoint, keypoints[0]);
+
+        // Draw the middle keypoints
+        keypoints.slice(1, -1).forEach((keypoint, index) => {
+            drawGradient(keypoint, keypoints[index + 2]);
+        });
+
+        // Draw the right edge point
         const rightEdgePoint = {
-            id: 1000,
+            id: 1,
             x: gradientSvgRef.current.getBoundingClientRect().width,
             color: keypoints[keypoints.length - 1].color,
             alpha: keypoints[keypoints.length - 1].alpha
         };
-        drawGradient(leftEdgePoint, keypoints[0]);
-        keypoints.forEach((keypoint, index) => {
-
-            if (index < keypoints.length - 1) {
-                drawGradient(keypoint, keypoints[index + 1]);
-            } else {
-                drawGradient(keypoint, rightEdgePoint);
-            }
-        });
+        drawGradient(keypoints[keypoints.length - 2], rightEdgePoint);
     };
 
     const drawGradient = (keypoint: Keypoint, nextKeypoint: Keypoint) => {
@@ -110,20 +111,20 @@ const KeypointEditorComponent: React.FC<KeypointEditorProps> = ({ keypoints, set
         onKeypointChange(keypoints);
     };
 
-
     const onGradientClick = (event: React.MouseEvent) => {
         if (keypointEditorContainerRef.current) {
             const rect = keypointEditorContainerRef.current.getBoundingClientRect();
             let x = event.clientX - rect.left;
             x = Math.max(0, Math.min(x, rect.width)) / keypointSvgWidth;
             const newKeypoint: Keypoint = { id: Date.now(), x, color: "#000000", alpha: 1 };
-            setKeypoints([...keypoints, newKeypoint]);
+            setKeypoints([...keypoints, newKeypoint].sort((a, b) => a.x - b.x));
             setActiveKeypointId(newKeypoint.id);
         }
     };
     const onKeypointDelete = () => {
-        setKeypoints(keypoints.filter(keypoint => keypoint.id !== activeKeypointId));
+        setKeypoints(keypoints.filter(keypoint => keypoint.id !== activeKeypointId).sort((a, b) => a.x - b.x));
     }
+
     const getKeypointIcon = (keypoint: any) => {
         const strokeColor = keypoint.id === activeKeypointId ? '#0C8CE9' : '#B3B3B3';
         const fillColor = keypoint.color;
@@ -138,7 +139,6 @@ const KeypointEditorComponent: React.FC<KeypointEditorProps> = ({ keypoints, set
         return `data:image/svg+xml,${encodeURIComponent(svg)}`;
     }
     function generatePathD(keypoints: Keypoint[], width: number, height: number): string {
-        keypoints.sort((a, b) => a.x - b.x);
         let d = `M ${keypoints[0].x * width} ${(1 - keypoints[0].alpha) * height}`;
         for (let i = 1; i < keypoints.length; i++) {
             d += ` L ${keypoints[i].x * width} ${(1 - keypoints[i].alpha) * height}`;
@@ -190,7 +190,7 @@ const KeypointEditorComponent: React.FC<KeypointEditorProps> = ({ keypoints, set
                             r: chroma(keypoints.find(keypoint => keypoint.id === activeKeypointId)?.color || '#000').get('rgb.r'),
                             g: chroma(keypoints.find(keypoint => keypoint.id === activeKeypointId)?.color || '#000').get('rgb.g'),
                             b: chroma(keypoints.find(keypoint => keypoint.id === activeKeypointId)?.color || '#000').get('rgb.b'),
-                            a: keypoints.find(keypoint => keypoint.id === activeKeypointId)?.alpha || 1
+                            a: keypoints.find(keypoint => keypoint.id === activeKeypointId)?.alpha || 0
                         }
                         : {
                             r: 0,
