@@ -102,7 +102,7 @@ export class Viewer {
     }
 
     initgl(dataArray: DataArray): boolean {
-        const mesh = new BoxBufferGeometry();
+        const mesh = new BoxBufferGeometry(this.gl);
         console.log("mesh", mesh);
         if (!mesh) {
             alert('Unable to set mesh data.');

@@ -1,4 +1,5 @@
 import { vec3 } from 'gl-matrix';
+import { Geometry } from './Geometry';
 
 interface Vector3 {
     [key: string]: number;
@@ -17,38 +18,22 @@ class Vector3 {
         this.z = z;        
     }
 }
-export class BoxBufferGeometry {
-    vertices: number[];
-    normals: number[];
-    indices: number[];
-    uvs: number[];
+export class BoxBufferGeometry extends Geometry {
+
     parameters: any;    
-	constructor( width = 1, height = 1, depth = 1, widthSegments = 1, heightSegments = 1, depthSegments = 1 ) {
 
-
-		this.parameters = {
-			width: width,
-			height: height,
-			depth: depth,
-			widthSegments: widthSegments,
-			heightSegments: heightSegments,
-			depthSegments: depthSegments
-		};
-
-		const scope = this;
+    constructor(gl: WebGL2RenderingContext, width = 1, height = 1, depth = 1, widthSegments = 1, heightSegments = 1, depthSegments = 1) {
+        const indices: any = [];
+        const vertices: any = [];
+        const normals: any = [];
+        const uvs: any = [];
+		
 
 		// segments
 
 		widthSegments = Math.floor( widthSegments );
 		heightSegments = Math.floor( heightSegments );
 		depthSegments = Math.floor( depthSegments );
-
-		// buffers
-
-		const indices: any = [];
-		const vertices: any = [];
-		const normals: any = [];
-		const uvs: any = [];
 
 		// helper variables
 
@@ -171,10 +156,18 @@ export class BoxBufferGeometry {
 
 		}
 
-        this.indices = indices;
-        this.vertices = vertices;
-        this.normals = normals;
-        this.uvs = uvs;
+        super(gl, vertices, indices, normals, uvs);
+
+        this.parameters = {
+            width: width,
+            height: height,
+            depth: depth,
+            widthSegments: widthSegments,
+            heightSegments: heightSegments,
+            depthSegments: depthSegments
+        };
+
+
 	}
 
 }
