@@ -17,7 +17,7 @@ class Vector3 {
         this.z = z;        
     }
 }
-export class CubeMeshData {
+export class BoxBufferGeometry {
     vertices: number[];
     normals: number[];
     indices: number[];
