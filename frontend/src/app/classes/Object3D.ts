@@ -2,10 +2,7 @@ import { mat4, vec3 } from 'gl-matrix';
 import { Geometry } from './Geometry';
 
 export class Object3D {
-	// Transformation matrices
 	public modelMatrix: mat4;
-
-	// New properties for orientation, scale, and bounding box
 	private orientation: vec3 = vec3.create();
 	private scale: vec3 = vec3.fromValues(1, 1, 1);
 	private boundingBox: { min: vec3, max: vec3 } =
@@ -14,11 +11,17 @@ export class Object3D {
 			max: vec3.fromValues(1, 1, 1)
 		};
 	private geometry: Geometry;
+	private shaderProgram: WebGLProgram;
+	private uniforms: { [name: string]: any } = {};
+    private vao: WebGLVertexArrayObject | null;
 
-	constructor(gl: WebGL2RenderingContext, geometry: Geometry) {
+	constructor(gl: WebGL2RenderingContext, geometry: Geometry, shaderProgram: WebGLProgram) {
 		this.modelMatrix = mat4.create();
 		this.geometry = geometry;
+		this.shaderProgram = shaderProgram;
 		this.computeBoundingBox(geometry);
+		this.vao = null; // Initialize vao
+
 	}
 
 	private computeBoundingBox(geometry: Geometry): void {
@@ -63,14 +66,21 @@ export class Object3D {
 		this.computeBoundingBox(this.geometry);
 	}
 
+	setVAO(vao: WebGLVertexArrayObject | null): void {
+        this.vao = vao;
+    }
+
+    getVAO(): WebGLVertexArrayObject | null {
+        return this.vao;
+    }
 	// Reset the model matrix to the identity matrix
 	resetTransform(): void {
 		mat4.identity(this.modelMatrix);
 		this.computeBoundingBox(this.geometry);
 	}
-	getGeometry() {
-		return this.geometry;
-	}
+    public getGeometry(): Geometry {
+        return this.geometry;
+    }
 	// New getter methods
 	getOrientation() {
 		return this.orientation;
@@ -82,6 +92,18 @@ export class Object3D {
 
 	getBoundingBox() {
 		return this.boundingBox;
+	}
+
+	setUniform(name: string, value: any) {
+		this.uniforms[name] = value;
+	}
+
+	getShaderProgram() {
+		return this.shaderProgram;
+	}
+
+	getUniforms() {
+		return this.uniforms;
 	}
 
 }
