@@ -101,7 +101,6 @@ export class Viewer {
         }, false);
         if (config.useAxisHelper) {
             this.axisHelper = new AxisHelper(this.gl);
-            console.log("axis helper", this.axisHelper);
         }
     }
 
@@ -267,7 +266,7 @@ export class Viewer {
     display() {
         if (!this.valid || !this.cube || !this.camera) return;
         // Clear the canvas
-        this.gl.clearColor(0.9, 0.9, 1.0, 0.0);
+        this.gl.clearColor(199/255, 228/255, 252/255, 0.0);
         this.gl.clear(this.gl.COLOR_BUFFER_BIT); // Clear depth buffer bit
         // this.gl.enable(this.gl.DEPTH_TEST); // Enable depth testing
         this.gl.bindVertexArray(this.cube.getGeometry().getVao());
@@ -495,18 +494,6 @@ uniform vec3 u_boxMin;
 uniform vec3 u_boxMax;
 uniform vec3 u_TextureSize;
 
-// Gets the density at the specified position
-// float getDensity(vec3 pos)
-// {
-//     vec3 uv = pos.xyz ; // normalize to range [0, 1]
-//     // if (any(lessThan(uv, vec3(0.0))) || any(greaterThan(uv, vec3(1.0)))) {
-//     //     return 0.0;
-//     // } else {
-//         return interpolateTricubicFast(u_DataTex, uv, u_TextureSize).a;
-//     // }
-//     // return texture(u_DataTex, uv).r;
-// }
-
 // Computes object space view direction
 vec3 ObjSpaceViewDir(vec4 v) {
     vec3 objSpaceCameraPos = (u_modelInverse * vec4(u_cameraPosWorldSpace.xyz, 1.0)).xyz;
@@ -623,12 +610,10 @@ RayInfo getRayBack2Front(vec3 vertexLocal)
 RayInfo getRayFront2Back(vec3 vertexLocal)
 {
     RayInfo ray = getRayBack2Front(vertexLocal);
-    if (ray.startPos.z > ray.endPos.z) {
-        vec3 tmp = ray.startPos;
-        ray.startPos = ray.endPos;
-        ray.endPos = tmp;
-        ray.direction = -ray.direction;
-    }
+    ray.direction = -ray.direction;
+    vec3 tmp = ray.startPos;
+    ray.startPos = ray.endPos;
+    ray.endPos = tmp;
     return ray;
 }
 
