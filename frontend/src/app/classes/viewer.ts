@@ -31,11 +31,11 @@ export class Viewer {
     cube: Object3D | null;
     dataTexture: WebGLTexture | null;
     tfTexture: WebGLTexture | null;
-    shaderProgram: any;
+    volumeShaderProgram: any;
     locations!: any;
     valid: boolean;
     minMaxVal: number[];
-    axisHelper?: AxisHelper; // Optional
+    axisHelper?: AxisHelper; 
 
     constructor(canvas: HTMLCanvasElement, keypoints: Keypoint[], config: ViewerConfig) {
         this.canvas = canvas;
@@ -50,7 +50,7 @@ export class Viewer {
         this.camera = null;
         this.controls = null;
         this.cube = null;
-        this.shaderProgram = null;
+        this.volumeShaderProgram = null;
         this.minMaxVal = [0.0, 1.0];
         this.locations = {
             uniforms: {
@@ -91,13 +91,10 @@ export class Viewer {
         // this.gl.enable(this.gl.DEPTH_TEST);
         // don't render fragment with a lower or equal depth value
         // this.gl.depthFunc(this.gl.LEQUAL);
-        // enable blending color from src to dst
         this.gl.enable(this.gl.BLEND);
         this.gl.blendFunc(this.gl.SRC_ALPHA, this.gl.ONE_MINUS_SRC_ALPHA);
-        // Handle WebGL context loss
         this.canvas.addEventListener('webglcontextlost', (event) => {
             event.preventDefault();
-            // Handle the context loss
         }, false);
         if (config.useAxisHelper) {
             this.axisHelper = new AxisHelper(this.gl);
@@ -116,7 +113,7 @@ export class Viewer {
         const uvs = mesh.uvs;
         const cubeGeo = new Geometry(this.gl, vertices, indices, normals, uvs);
 
-        this.cube = new Object3D(this.gl, cubeGeo);
+        this.cube = new Object3D(this.gl, cubeGeo, this.volumeShaderProgram);
         if (!this.cube) {
             console.error("[viewer.ts] Unable to initialize the 3D object");
             throw new Error("Unable to initialize the 3D object");
@@ -139,10 +136,9 @@ export class Viewer {
         this.controls = new Arcball(this.camera, this.canvas);
         this.controls.update();
 
-        this.shaderProgram = buildShaders(this.gl, vertexShaderSource, fragmentShaderSource);
-        if (this.shaderProgram) {
-            // initialize scene uniforms
-            this.initUniforms(this.shaderProgram, dataArray);
+        this.volumeShaderProgram = buildShaders(this.gl, vertexShaderSource, fragmentShaderSource);
+        if (this.volumeShaderProgram) {
+            this.initUniforms(this.volumeShaderProgram, dataArray);
             return true;
         }
         return false;
@@ -228,9 +224,9 @@ export class Viewer {
         const minMax = dataArraySliceT.computeMinMax();
         const data3DTexture = Data3DTexture.fromDataArrayAtTime(dataArray, 0);
         data3DTexture.normalizeData(minMax.min, minMax.max); // Normalize data before uploading
-        // const dataTex = data3DTexture.uploadTexture(this.gl, 0);
+        const dataTex = data3DTexture.uploadTexture(this.gl, 0);
         // Debug with sphere texture
-        const dataTex = initializeSphereTexture(this.gl, 32, 32, 32, 0.5, 0);
+        // const dataTex = initializeSphereTexture(this.gl, 32, 32, 32, 0.5, 0);
         if (!dataTex) {
             console.error("[viewer.ts] Unable to upload data texture.");
             return false;
@@ -277,6 +273,8 @@ export class Viewer {
         const modelViewMatrix = mat4.create();
         const modelMatrix = mat4.create();
         mat4.multiply(modelViewMatrix, this.camera.viewMatrix, modelMatrix);
+        this.gl.useProgram(this.volumeShaderProgram);
+
         this.axisHelper?.render(modelViewMatrix, this.camera.projectionMatrix);
 
     }
@@ -290,9 +288,10 @@ export class Viewer {
         }
         const tfWidth = 128;
         const tfData = generateTFData(tfWidth, this.keypoints);
-        this.tfTexture = initializeTFTexture(this.gl, tfWidth, 1, tfData, 1);
+        const textureUnit = 0;
+        this.tfTexture = initializeTFTexture(this.gl, tfWidth, 1, tfData, textureUnit + 1);
         this.gl.activeTexture(this.gl.TEXTURE0 + 1);
-        this.gl.uniform1i(this.locations.uniforms.u_TFTex, 1);
+        this.gl.uniform1i(this.locations.uniforms.u_TFTex, textureUnit + 1);
         console.log("active texture unit before reset", this.gl.getParameter(this.gl.ACTIVE_TEXTURE));
         // Restore the previous active texture unit
         this.gl.activeTexture(previousTextureUnit);
@@ -302,7 +301,6 @@ export class Viewer {
     }
 
     updateUniforms() {
-
         if (!this.cube) {
             console.error("[viewer.ts] Cube is invalid.");
             return false;
@@ -311,6 +309,8 @@ export class Viewer {
             console.error("[viewer.ts] Camera is invalid.");
             return false;
         }
+        this.gl.useProgram(this.volumeShaderProgram);
+
         this.camera.updateProjectionMatrix;
         this.camera.updateViewMatrix;
 
@@ -349,26 +349,28 @@ export class Viewer {
         return true;
     }
     updateTransferFunction(keypoints: Keypoint[]) {
+        this
         this.keypoints = keypoints;
-        // // Save the current active texture unit
-        // const previousTextureUnit = this.gl.getParameter(this.gl.ACTIVE_TEXTURE);
-        // // Delete old transfer function texture if it exists
-        // if (this.tfTexture) {
-        //     console.log("deleting old tf texture");
-        //     this.gl.deleteTexture(this.tfTexture);
-        // }
-        // const tfWidth = 128;
-        // const tfData = generateTFData(tfWidth, this.keypoints);
-        // this.tfTexture = initializeTFTexture(this.gl, tfWidth, 1, tfData, 1);
-        // this.gl.activeTexture(this.gl.TEXTURE0 + 1);
-        // this.gl.uniform1i(this.locations.uniforms.u_TFTex, 1);
-        // console.log("active texture unit before reset", this.gl.getParameter(this.gl.ACTIVE_TEXTURE));
-        // // Restore the previous active texture unit
-        // this.gl.activeTexture(previousTextureUnit);
-        // console.log("active texture unit after reset ", this.gl.getParameter(this.gl.ACTIVE_TEXTURE));
+        // Save the current active texture unit
+        const previousTextureUnit = this.gl.getParameter(this.gl.ACTIVE_TEXTURE);
+        // Delete old transfer function texture if it exists
+        if (this.tfTexture) {
+            console.log("deleting old tf texture");
+            this.gl.deleteTexture(this.tfTexture);
+        }
+        const tfWidth = 128;
+        const tfData = generateTFData(tfWidth, this.keypoints);
+        const textureUnit = 0;
+        this.tfTexture = initializeTFTexture(this.gl, tfWidth, 1, tfData, textureUnit + 1);
+        this.gl.activeTexture(this.gl.TEXTURE0 + 1);
+        this.gl.uniform1i(this.locations.uniforms.u_TFTex, textureUnit + 1);
+        console.log("active texture unit before reset", this.gl.getParameter(this.gl.ACTIVE_TEXTURE));
+        // Restore the previous active texture unit
+        this.gl.activeTexture(previousTextureUnit);
+        console.log("active texture unit after reset ", this.gl.getParameter(this.gl.ACTIVE_TEXTURE));
 
         // this.display();
-        this.updateTextures();
+        // this.updateTextures();
     }
     init(dataArray: DataArray) {
         if (!dataArray) {
@@ -401,7 +403,7 @@ export class Viewer {
     render() {
         requestAnimationFrame(() => this.render());
         // Use the shader program
-        this.gl.useProgram(this.shaderProgram);
+        this.gl.useProgram(this.volumeShaderProgram);
 
         if (!this.camera || !this.cube || !this.controls) {
             return
