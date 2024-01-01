@@ -1,5 +1,5 @@
 import { mat4, vec3, vec4 } from 'gl-matrix';
-import { CubeMeshData } from './cube_meshdata';
+import { BoxBufferGeometry } from './BoxBufferGeometry';
 import DataArray from './dataArray';
 import Data3DTexture from './data3DTexture';
 import { Object3D } from './Object3D';
@@ -10,13 +10,16 @@ import {
 } from './utils';
 import { Camera } from './Camera';
 import { Arcball } from './Arcball';
-import { testWindingOrder } from '../test/geometryTest';
+import { AxisHelper } from './AxisHelper';
 
 interface Keypoint {
     id: number; // Unique id of the keypoint
     x: number; // x-coordinate of the keypoint on the curve
     color: string; // Color in hexadecimal format
     alpha: number;// Alpha value 
+}
+export interface ViewerConfig {
+    useAxisHelper?: boolean;
 }
 
 export class Viewer {
@@ -32,7 +35,9 @@ export class Viewer {
     locations!: any;
     valid: boolean;
     minMaxVal: number[];
-    constructor(canvas: HTMLCanvasElement, keypoints: Keypoint[]) {
+    axisHelper?: AxisHelper; // Optional
+
+    constructor(canvas: HTMLCanvasElement, keypoints: Keypoint[], config: ViewerConfig) {
         this.canvas = canvas;
         this.keypoints = keypoints;
         this.valid = false;
@@ -94,10 +99,14 @@ export class Viewer {
             event.preventDefault();
             // Handle the context loss
         }, false);
+        if (config.useAxisHelper) {
+            this.axisHelper = new AxisHelper(this.gl);
+            console.log("axis helper", this.axisHelper);
+        }
     }
 
     initgl(dataArray: DataArray): boolean {
-        const mesh = new CubeMeshData();
+        const mesh = new BoxBufferGeometry();
         console.log("mesh", mesh);
         if (!mesh) {
             alert('Unable to set mesh data.');
@@ -105,8 +114,6 @@ export class Viewer {
         const vertices = mesh.vertices;
         const indices = mesh.indices;
         const normals = mesh.normals;
-        const isValidGeo = testWindingOrder(indices, vertices);
-        console.log("isValidGeo", isValidGeo);
         const uvs = mesh.uvs;
         const cubeGeo = new Geometry(this.gl, vertices, indices, normals, uvs);
 
@@ -133,9 +140,8 @@ export class Viewer {
         this.controls = new Arcball(this.camera, this.canvas);
         this.controls.update();
 
-        let shaderProgram = this.gl.createProgram();
-        this.shaderProgram = buildShaders(this.gl, vertexShaderSource, fragmentShaderSource, shaderProgram);
-        if (shaderProgram) {
+        this.shaderProgram = buildShaders(this.gl, vertexShaderSource, fragmentShaderSource);
+        if (this.shaderProgram) {
             // initialize scene uniforms
             this.initUniforms(this.shaderProgram, dataArray);
             return true;
@@ -223,9 +229,9 @@ export class Viewer {
         const minMax = dataArraySliceT.computeMinMax();
         const data3DTexture = Data3DTexture.fromDataArrayAtTime(dataArray, 0);
         data3DTexture.normalizeData(minMax.min, minMax.max); // Normalize data before uploading
-        const dataTex = data3DTexture.uploadTexture(this.gl, 0);
+        // const dataTex = data3DTexture.uploadTexture(this.gl, 0);
         // Debug with sphere texture
-        // const dataTex = initializeSphereTexture(this.gl, 32, 32, 32, 0.5, 0);
+        const dataTex = initializeSphereTexture(this.gl, 32, 32, 32, 0.5, 0);
         if (!dataTex) {
             console.error("[viewer.ts] Unable to upload data texture.");
             return false;
@@ -259,7 +265,7 @@ export class Viewer {
         return true;
     }
     display() {
-        if (!this.valid || !this.cube) return;
+        if (!this.valid || !this.cube || !this.camera) return;
         // Clear the canvas
         this.gl.clearColor(0.9, 0.9, 1.0, 0.0);
         this.gl.clear(this.gl.COLOR_BUFFER_BIT); // Clear depth buffer bit
@@ -269,6 +275,10 @@ export class Viewer {
         this.gl.drawElements(this.gl.TRIANGLES, this.cube.getGeometry().getIndexCount(), this.gl.UNSIGNED_SHORT, 0);
         this.gl.getError(); // Check for errors after each WebGL call
         this.gl.bindVertexArray(null);
+        const modelViewMatrix = mat4.create();
+        const modelMatrix = mat4.create();
+        mat4.multiply(modelViewMatrix, this.camera.viewMatrix, modelMatrix);
+        this.axisHelper?.render(modelViewMatrix, this.camera.projectionMatrix);
 
     }
     updateTextures() {
@@ -341,7 +351,9 @@ export class Viewer {
     }
     updateTransferFunction(keypoints: Keypoint[]) {
         this.keypoints = keypoints;
-        // Delete old transfer function texture if it exists
+        // // Save the current active texture unit
+        // const previousTextureUnit = this.gl.getParameter(this.gl.ACTIVE_TEXTURE);
+        // // Delete old transfer function texture if it exists
         // if (this.tfTexture) {
         //     console.log("deleting old tf texture");
         //     this.gl.deleteTexture(this.tfTexture);
@@ -350,13 +362,12 @@ export class Viewer {
         // const tfData = generateTFData(tfWidth, this.keypoints);
         // this.tfTexture = initializeTFTexture(this.gl, tfWidth, 1, tfData, 1);
         // this.gl.activeTexture(this.gl.TEXTURE0 + 1);
-        // // Ensure the correct program is active before setting the uniform value
-        // this.gl.useProgram(this.shaderProgram);
         // this.gl.uniform1i(this.locations.uniforms.u_TFTex, 1);
-        // // Restore the previous active texture unit
         // console.log("active texture unit before reset", this.gl.getParameter(this.gl.ACTIVE_TEXTURE));
         // // Restore the previous active texture unit
+        // this.gl.activeTexture(previousTextureUnit);
         // console.log("active texture unit after reset ", this.gl.getParameter(this.gl.ACTIVE_TEXTURE));
+
         // this.display();
         this.updateTextures();
     }

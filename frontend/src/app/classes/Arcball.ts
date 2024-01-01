@@ -89,3 +89,4 @@ export class Arcball {
         this.camera.setUp(this.cameraUp);
     }
 }
+

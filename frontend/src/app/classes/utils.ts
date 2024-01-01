@@ -233,13 +233,14 @@ export function generateTFData(width: number, keypoints: Keypoint[]): Uint8Array
     return data;
 }
 
-export function buildShaders(gl: WebGL2RenderingContext, vertexShaderSource: string, fragmentShaderSource: string, shaderProgram: any): boolean {
+export function buildShaders(gl: WebGL2RenderingContext, vertexShaderSource: string, fragmentShaderSource: string): WebGLProgram | false {
+
     let vertexShader = compileShader(gl, vertexShaderSource, gl.VERTEX_SHADER) as WebGLShader;
     let fragmentShader = compileShader(gl, fragmentShaderSource, gl.FRAGMENT_SHADER) as WebGLShader;
     if (!vertexShader || !fragmentShader) {
         return false;
     }
-    shaderProgram = gl.createProgram();
+    let shaderProgram = gl.createProgram();
     if (!shaderProgram) {
         return false;
     }

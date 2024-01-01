@@ -39,7 +39,8 @@ const ViewerComponent = () => {
   useEffect(() => {
     const canvasElement = canvasRef.current;
     if (canvasElement) {
-      const viewer = new Viewer(canvasElement, keypoints);
+
+      const viewer = new Viewer(canvasElement, keypoints, { useAxisHelper: true });
       setView(viewer);
 
       // Prevent scrolling when mouse wheel is used inside the viewer
