@@ -5,8 +5,10 @@ import { Object3D } from './Object3D';
 import { Texture2D } from './Texture2D';
 import { Texture3D } from './Texture3D';
 import { mat4, vec3 } from 'gl-matrix';
+
 export interface RendererConfig {
     faceCulling?: boolean;
+    alphaBlending?: boolean;
     cullFace?: number;
     blendFuncSrc?: number;
     blendFuncDst?: number;
@@ -15,13 +17,13 @@ export interface RendererConfig {
 
 export class Renderer {
     private gl: WebGL2RenderingContext;
-    private locations: { 
-        uniforms: { [name: string]: WebGLUniformLocation }, 
-        attributes: { [name: string]: number } 
+    private locations: {
+        uniforms: { [name: string]: WebGLUniformLocation },
+        attributes: { [name: string]: number }
     } = {
-        uniforms: {},
-        attributes: {}
-    };    private currentProgram: WebGLProgram | null = null;
+            uniforms: {},
+            attributes: {}
+        }; private currentProgram: WebGLProgram | null = null;
 
     private shaderPrograms: { [key: string]: WebGLProgram } = {};
     private config: RendererConfig;
@@ -30,12 +32,21 @@ export class Renderer {
         this.gl = gl;
         this.config = {
             faceCulling: true,
+            alphaBlending: true,
             cullFace: this.gl.FRONT,
             blendFuncSrc: this.gl.SRC_ALPHA,
             blendFuncDst: this.gl.ONE_MINUS_SRC_ALPHA,
             clearColor: [0, 0, 0, 0],
             ...config
         };
+        if (this.config.faceCulling) {
+            this.gl.enable(this.gl.CULL_FACE);
+            this.gl.cullFace(this.config.cullFace as number);
+        }
+        if (this.config.alphaBlending) {
+            this.gl.enable(this.gl.BLEND);
+            this.gl.blendFunc(this.config.blendFuncSrc as number, this.config.blendFuncDst as number);
+        }
     }
 
     addUniformLocation(name: string, program: WebGLProgram) {
@@ -174,8 +185,10 @@ export class Renderer {
 
     render(scene: Scene, camera: Camera) {
         // Clear the canvas
+        if (this.config.clearColor) {
+            this.gl.clearColor(...this.config.clearColor);
+        }
         this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
-
         // Traverse the scene's objects
         for (const object of scene.getObjects()) {
             // Use the object's shader program if it's different from the current one
@@ -276,7 +289,7 @@ export class Renderer {
                 default:
                     throw new Error(`Unsupported attribute type: ${attribute.type}`);
             }
-        }        
+        }
 
         // // Set up the index attribute
         const indexBuffer = this.createBuffer(this.gl, geometry.indices, this.gl.ELEMENT_ARRAY_BUFFER);
