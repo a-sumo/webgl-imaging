@@ -138,7 +138,6 @@ export function generateNoiseTexture(gl: WebGL2RenderingContext, width: number, 
     for (let i = 0; i < width * height; i++) {
         noiseData[i] = Math.random() * 255; // Random value between 0 and 255
     }
-
     gl.texImage2D(
         gl.TEXTURE_2D,
         0, // level
@@ -158,6 +157,13 @@ export function generateNoiseTexture(gl: WebGL2RenderingContext, width: number, 
     gl.activeTexture(previousTextureUnit);
 
     return texture;
+}
+export function generateNoiseData(width: number, height: number): any {
+    const noiseData = new Uint8Array(width * height);
+    for (let i = 0; i < width * height; i++) {
+        noiseData[i] = Math.random() * 255; 
+    }
+    return noiseData;
 }
 export function initializeTFTexture(gl: WebGL2RenderingContext, width: number, height: number, data: Uint8Array, textureUnit: number): WebGLTexture {
     const texture = gl.createTexture();
