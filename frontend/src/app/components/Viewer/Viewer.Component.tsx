@@ -14,6 +14,10 @@ const ViewerComponent = () => {
     { id: 0, x: 0, color: "#000000", alpha: 0 },
     { id: 1, x: 1, color: "#ffffff", alpha: 1 },
   ])
+  const [keypoints2, setKeypoints2] = useState<Keypoint[]>([
+    { id: 0, x: 0, color: "#000000", alpha: 0 },
+    { id: 1, x: 1, color: "#ffffff", alpha: 1 },
+  ])
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const canvas2Ref = useRef<HTMLCanvasElement | null>(null);
 
@@ -21,6 +25,7 @@ const ViewerComponent = () => {
   const [view2, setView2] = useState<Viewer2 | null>(null);
 
   const [isViewInit, setIsViewInit] = useState(false);
+  const [isView2Init, setIsView2Init] = useState(false);
 
   const handleKeypointUpdate = (updatedKeypoints: Keypoint[]) => {
     if (isViewInit && view) {
@@ -51,7 +56,7 @@ const ViewerComponent = () => {
         anliasing: true
       }) as WebGL2RenderingContext;
 
-      const viewer = new Viewer(gl, canvasElement, keypoints, { useAxisHelper: true });
+      const viewer = new Viewer(gl, canvasElement, keypoints2, { useAxisHelper: true });
 
       setView(viewer);
       // Prevent scrolling when mouse wheel is used inside the viewer
@@ -75,12 +80,13 @@ const ViewerComponent = () => {
     return () => {
     };
   }, []);
+  
   useEffect(() => {
     const canvas2Element = canvas2Ref.current;
 
     if (canvas2Element) {
       // Get the WebGL context, with no premultiplied alpha
-      const gl = canvasRef.current?.getContext('webgl2', {
+      const gl = canvas2Ref.current?.getContext('webgl2', {
         alpha: false,
         premultipliedAlpha: false,
         anliasing: true
@@ -99,7 +105,7 @@ const ViewerComponent = () => {
         const nrrdLoader = new NRRDLoader();
         const dataArray = nrrdLoader.parse(arrayBuffer);
         viewer2.init(dataArray, keypoints);
-        setIsViewInit(true);
+        setIsView2Init(true);
         // viewer.updateTransferFunction(keypoints);
 
       }).catch(error => {
