@@ -15,7 +15,11 @@ const ViewerComponent = () => {
     { id: 1, x: 1, color: "#ffffff", alpha: 1 },
   ])
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const canvas2Ref = useRef<HTMLCanvasElement | null>(null);
+
   const [view, setView] = useState<Viewer | null>(null);
+  const [view2, setView2] = useState<Viewer2 | null>(null);
+
   const [isViewInit, setIsViewInit] = useState(false);
 
   const handleKeypointUpdate = (updatedKeypoints: Keypoint[]) => {
@@ -38,6 +42,7 @@ const ViewerComponent = () => {
 
   useEffect(() => {
     const canvasElement = canvasRef.current;
+
     if (canvasElement) {
       // Get the WebGL context, with no premultiplied alpha
       const gl = canvasRef.current?.getContext('webgl2', {
@@ -47,9 +52,8 @@ const ViewerComponent = () => {
       }) as WebGL2RenderingContext;
 
       const viewer = new Viewer(gl, canvasElement, keypoints, { useAxisHelper: true });
-      const viewer2 = new Viewer2(gl, canvasElement, keypoints, { useAxisHelper: true });
-      setView(viewer);
 
+      setView(viewer);
       // Prevent scrolling when mouse wheel is used inside the viewer
       canvasElement.addEventListener('wheel', function (event) {
         event.preventDefault();
@@ -60,7 +64,41 @@ const ViewerComponent = () => {
         const nrrdLoader = new NRRDLoader();
         const dataArray = nrrdLoader.parse(arrayBuffer);
         viewer.init(dataArray);
-        viewer2.init(dataArray);
+        setIsViewInit(true);
+        // viewer.updateTransferFunction(keypoints);
+
+      }).catch(error => {
+        console.error('Failed to fetch NRRD data:', error);
+      });
+    }
+
+    return () => {
+    };
+  }, []);
+  useEffect(() => {
+    const canvas2Element = canvas2Ref.current;
+
+    if (canvas2Element) {
+      // Get the WebGL context, with no premultiplied alpha
+      const gl = canvasRef.current?.getContext('webgl2', {
+        alpha: false,
+        premultipliedAlpha: false,
+        anliasing: true
+      }) as WebGL2RenderingContext;
+
+      const viewer2 = new Viewer2(gl, canvas2Element, keypoints, { useAxisHelper: true });
+
+      setView2(viewer2);
+      // Prevent scrolling when mouse wheel is used inside the viewer
+      canvas2Element.addEventListener('wheel', function (event) {
+        event.preventDefault();
+      }, { passive: false });
+
+      // Load the NRRD data
+      getNrrdData().then(arrayBuffer => {
+        const nrrdLoader = new NRRDLoader();
+        const dataArray = nrrdLoader.parse(arrayBuffer);
+        viewer2.init(dataArray, keypoints);
         setIsViewInit(true);
         // viewer.updateTransferFunction(keypoints);
 
@@ -75,6 +113,7 @@ const ViewerComponent = () => {
 
   return <div className="viewerContainer">
     <canvas ref={canvasRef} width="400" height="400" />
+    <canvas ref={canvas2Ref} width="400" height="400" />
     <KeypointEditorComponent keypoints={keypoints} setKeypoints={setKeypoints} onKeypointChange={handleKeypointUpdate} />
   </div>;
 };
