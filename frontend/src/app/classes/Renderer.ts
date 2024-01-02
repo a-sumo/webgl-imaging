@@ -2,17 +2,34 @@ import { Scene } from './Scene';
 import { Camera } from './Camera';
 import { Geometry } from './Geometry';
 import { Object3D } from './Object3D';
+import { Texture2D } from './Texture2D';
+import { Texture3D } from './Texture3D';
+
+export interface RendererConfig {
+    faceCulling?: boolean;
+    cullFace?: number;
+    blendFuncSrc?: number;
+    blendFuncDst?: number;
+    clearColor?: [number, number, number, number];
+}
 
 export class Renderer {
     private gl: WebGL2RenderingContext;
     private locations: { [name: string]: WebGLUniformLocation } = {};
     private currentProgram: WebGLProgram | null = null;
     private shaderPrograms: { [key: string]: WebGLProgram } = {};
+    private config: RendererConfig;
 
-    constructor(gl: WebGL2RenderingContext) {
+    constructor(gl: WebGL2RenderingContext, config: RendererConfig = {}) {
         this.gl = gl;
-        this.setupWebGLContext();
-
+        this.config = {
+            faceCulling: true,
+            cullFace: this.gl.FRONT,
+            blendFuncSrc: this.gl.SRC_ALPHA,
+            blendFuncDst: this.gl.ONE_MINUS_SRC_ALPHA,
+            clearColor: [0, 0, 0, 0],
+            ...config
+        };
     }
 
     addUniform(name: string, program: WebGLProgram) {
@@ -126,6 +143,7 @@ export class Renderer {
         this.gl.cullFace(this.gl.FRONT);
         this.gl.enable(this.gl.BLEND);
         this.gl.blendFunc(this.gl.SRC_ALPHA, this.gl.ONE_MINUS_SRC_ALPHA);
+        this.gl.clearColor(199 / 255, 228 / 255, 252 / 255, 0.0);
     }
     render(scene: Scene, camera: Camera) {
         // Clear the canvas
@@ -197,4 +215,108 @@ export class Renderer {
         return vao;
     }
 
+    uploadTexture2D(texture: Texture2D, textureUnit: number): WebGLTexture | null {
+        let { data, width, height, type } = texture.textureData;
+        const previousTextureUnit = this.gl.getParameter(this.gl.ACTIVE_TEXTURE);
+        const glTexture = this.gl.createTexture();
+        if (!glTexture) {
+            throw new Error('Failed to create texture');
+        }
+        this.gl.activeTexture(this.gl.TEXTURE0 + textureUnit);
+        this.gl.bindTexture(this.gl.TEXTURE_2D, glTexture);
+
+        this.gl.pixelStorei(this.gl.UNPACK_FLIP_Y_WEBGL, texture.flipY);
+        this.gl.pixelStorei(this.gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, texture.premultiplyAlpha);
+        this.gl.pixelStorei(this.gl.UNPACK_ALIGNMENT, texture.unpackAlignment);
+
+        // Convert data to Uint8Array regardless of the original type
+        if (!(data instanceof Uint8Array)) {
+            data = new Uint8Array(data.buffer);
+        }
+
+        let glType: number;
+        switch (type) {
+            case 'Uint8Array':
+                glType = this.gl.UNSIGNED_BYTE;
+                break;
+            case 'Float32Array':
+                glType = this.gl.FLOAT;
+                break;
+            default:
+                throw new Error('Unsupported data type');
+        }
+
+        this.gl.texImage2D(
+            this.gl.TEXTURE_2D,
+            0, 
+            texture.internalFormat,
+            width, 
+            height, 
+            0, 
+            texture.format, 
+            glType,
+            data 
+        );
+
+        this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MIN_FILTER, texture.minFilter);
+        this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MAG_FILTER, texture.magFilter);
+        this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_S, texture.wrapR);
+        this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_T, texture.wrapR);
+
+        this.gl.activeTexture(previousTextureUnit);
+        return glTexture;
+    }
+
+    uploadTexture3D(texture: Texture3D, textureUnit: number): WebGLTexture | null {
+        let { data, width, height, depth, type } = texture.textureData;
+        const previousTextureUnit = this.gl.getParameter(this.gl.ACTIVE_TEXTURE);
+        const glTexture = this.gl.createTexture();
+        if (!glTexture) {
+            throw new Error('Failed to create texture');
+        }
+        this.gl.activeTexture(this.gl.TEXTURE0 + textureUnit);
+        this.gl.bindTexture(this.gl.TEXTURE_3D, glTexture);
+
+        this.gl.pixelStorei(this.gl.UNPACK_FLIP_Y_WEBGL, texture.flipY);
+        this.gl.pixelStorei(this.gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, texture.premultiplyAlpha);
+        this.gl.pixelStorei(this.gl.UNPACK_ALIGNMENT, texture.unpackAlignment);
+
+        // Convert data to Uint8Array regardless of the original type
+        if (!(data instanceof Uint8Array)) {
+            data = new Uint8Array(data.buffer);
+        }
+        let glType: number;
+        switch (type) {
+            case 'Uint8Array':
+            case 'Int16Array':
+                glType = this.gl.UNSIGNED_BYTE;
+                break;
+            case 'Float32Array':
+                glType = this.gl.FLOAT;
+                break;
+            default:
+                throw new Error('Unsupported data type');
+        }
+
+        this.gl.texImage3D(
+            this.gl.TEXTURE_3D,
+            0, 
+            texture.internalFormat,
+            width,
+            height, 
+            depth,
+            0,
+            texture.format,
+            glType,
+            data
+        );
+
+        this.gl.texParameteri(this.gl.TEXTURE_3D, this.gl.TEXTURE_MIN_FILTER, texture.minFilter);
+        this.gl.texParameteri(this.gl.TEXTURE_3D, this.gl.TEXTURE_MAG_FILTER, texture.magFilter);
+        this.gl.texParameteri(this.gl.TEXTURE_3D, this.gl.TEXTURE_WRAP_S, texture.wrapR);
+        this.gl.texParameteri(this.gl.TEXTURE_3D, this.gl.TEXTURE_WRAP_T, texture.wrapR);
+
+        this.gl.activeTexture(previousTextureUnit);
+        return glTexture;
+    }
 }
