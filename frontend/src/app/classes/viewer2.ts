@@ -41,7 +41,7 @@ export class Viewer2 {
         const zFar = 100.0;
 
         this.camera = new Camera(fieldOfView, aspect, zNear, zFar);
-        this.camera.setPosition(vec3.fromValues(2.0, 2.0, 0.0));
+        this.camera.setPosition(vec3.fromValues(1.0, 1.0, 0.0));
         this.camera.setTarget(vec3.fromValues(0., 0., 0.));
         this.camera.setUp(vec3.fromValues(0, 1, 0));
         if (!this.camera) {
@@ -64,6 +64,13 @@ export class Viewer2 {
             throw new Error("Unable to get the shader program");
         }
         const volumeObject = new Object3D(this.gl, cubeGeometry, volumeShaderProgram);
+        if (!volumeObject) {
+            console.error("[viewer.ts] Unable to create the object");
+            throw new Error("Unable to create the object");
+        }
+        volumeObject.setScale([1, 1, 0.8])
+        // fix the cube orientation
+        volumeObject.rotate(Math.PI , [1, 0, 0]);
         // Add object to scene
         this.scene.addObject('volumeObject', volumeObject);
 
@@ -210,7 +217,7 @@ export class Viewer2 {
         // TODO: Add axis helper
 
         // render the scene
-        // this.startAnimationLoop();
+        this.startAnimationLoop();
 
     }
     updateUniforms() {
@@ -275,6 +282,7 @@ export class Viewer2 {
 
     startAnimationLoop() {
         const renderFrame = () => {
+            this.updateUniforms();
             this.renderer.render(this.scene, this.camera);
             this.animationId = requestAnimationFrame(renderFrame);
         };

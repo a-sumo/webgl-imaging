@@ -11,7 +11,6 @@ import {
 import { Camera } from './Camera';
 import { Arcball } from './Arcball';
 import { AxisHelper } from './AxisHelper';
-import { Renderer } from './Renderer';
 import { Scene } from './Scene';
 
 interface Keypoint {
@@ -26,8 +25,6 @@ export interface ViewerConfig {
 
 export class Viewer {
     canvas: HTMLCanvasElement;
-    private renderer: Renderer;
-    private scene: Scene;
     private animationId: number | null = null;
 
     keypoints: Keypoint[];
@@ -48,8 +45,6 @@ export class Viewer {
 
         this.canvas = canvas;
         this.gl = gl;
-        this.renderer = new Renderer(gl);
-        this.scene = new Scene();
         const fieldOfView = Math.PI / 2.;
         const aspect = this.canvas.width / this.canvas.height;
         const zNear = 0.1;
@@ -131,14 +126,16 @@ export class Viewer {
             console.error("[viewer.ts] Unable to initialize the 3D object");
             throw new Error("Unable to initialize the 3D object");
         }
-        this.cube.setScale([1, 1, 1]);
+        this.cube.setScale([1, 1, 0.8]);
+        // fix the cube orientation
+        this.cube.rotate(Math.PI , [1, 0, 0]);
         this.cube.translate([0, 0, 0]);
         // Set up the camera
         if (!this.camera) {
             console.error("[viewer.ts] Unable to initialize the Camera");
             throw new Error("Unable to initialize the Camera");
         }
-        this.camera.setPosition(vec3.fromValues(2.0, 2.0, 0.0));
+        this.camera.setPosition(vec3.fromValues(1.0, 1.0, 0.0));
         this.camera.setTarget(vec3.fromValues(0., 0., 0.));
         this.camera.setUp(vec3.fromValues(0, 1, 0));
         this.controls = new Arcball(this.camera, this.canvas);
