@@ -1,11 +1,13 @@
 import { Object3D } from './Object3D';
 import { Scene } from './Scene';
 import { Camera } from './Camera';
-import { Renderer } from './Renderer';
+import { Renderer, RendererConfig } from './Renderer';
 import { vec3, mat4 } from 'gl-matrix';
 import DataArray from './dataArray';
 import { BoxBufferGeometry } from './BoxBufferGeometry';
-
+import { Texture2D } from './Texture2D';
+import { Texture3D } from './Texture3D';
+import { generateTFData, generateNoiseData} from './utils';
 
 export interface ViewerConfig {
     useAxisHelper?: boolean;
@@ -30,7 +32,7 @@ export class Viewer2 {
 
         this.canvas = canvas;
         this.gl = gl;
-        this.renderer = new Renderer(gl);
+        this.renderer = new Renderer(gl, { clearColor: [199 / 255, 228 / 255, 252 / 255, 0.0]});
         this.scene = new Scene();
         const fieldOfView = Math.PI / 2.;
         const aspect = this.canvas.width / this.canvas.height;
@@ -47,7 +49,7 @@ export class Viewer2 {
             throw new Error("Unable to initialize the Camera");
         }
     }
-    init(dataArray: DataArray) {
+    init(dataArray: DataArray, keypoints: Keypoint[]) {
         // define cube geometry
         const cubeGeometry =  new BoxBufferGeometry(this.gl);
         // define shader program
@@ -62,11 +64,102 @@ export class Viewer2 {
             throw new Error("Unable to get the shader program");
         }
         const volumeObject = new Object3D(this.gl, cubeGeometry, volumeShaderProgram);
-        // add uniforms
+        // Add uniforms
+      
+        // Initialize modelMatrix
+        volumeObject.addUniform('u_modelMatrix', 'Matrix4fv', volumeObject.modelMatrix);
+        // Initialize modelInverse 
+        const modelInverse = mat4.create();
+        volumeObject.addUniform('u_modelInverse', 'Matrix4fv', modelInverse);
         // Initialize modelViewMatrix
         const modelViewMatrix = mat4.create();
         mat4.multiply(modelViewMatrix, this.camera.viewMatrix, volumeObject.modelMatrix);
         volumeObject.addUniform('u_modelViewMatrix', 'Matrix4fv', modelViewMatrix);
+        // Initialize modelViewInverse
+        const modelViewInverse = mat4.create();
+        mat4.invert(modelViewInverse, modelViewMatrix);
+        volumeObject.addUniform('u_modelViewInverse', 'Matrix4fv', modelViewInverse);
+        // Initialize viewInverse
+        const viewInverse = mat4.create();
+        mat4.invert(viewInverse, this.camera.viewMatrix);
+        volumeObject.addUniform('u_viewInverse', 'Matrix4fv', viewInverse);
+
+        // Initialize projectionMatrix 
+        volumeObject.addUniform('u_projectionMatrix', 'Matrix4fv', this.camera.projectionMatrix);
+
+        // Initialize projectionMatrix Inverse
+        const projectionInverse = mat4.create();
+        mat4.invert(projectionInverse, this.camera.projectionMatrix);
+        volumeObject.addUniform('u_projectionInverse', 'Matrix4fv', projectionInverse);
+
+        // Initialize viewDirWorldSpace
+        const viewDirWorldSpace = vec3.create();
+        vec3.subtract(viewDirWorldSpace, this.camera.target, this.camera.position);
+        vec3.normalize(viewDirWorldSpace, viewDirWorldSpace);
+        volumeObject.addUniform('u_viewDirWorldSpace', '3fv', viewDirWorldSpace);
+
+        volumeObject.addUniform('u_cameraPosWorldSpace', '3fv', this.camera.position);
+
+        const isOrtho = 0;
+        volumeObject.addUniform('u_isOrtho', '1i', isOrtho);
+
+        // Threshold Values
+        volumeObject.addUniform('u_minMaxVal', '2fv', [0.0, 1.0]);
+
+        // Bounding Box
+        const boundingBox = volumeObject.getBoundingBox();
+        volumeObject.addUniform('u_boxMin', '3fv', boundingBox.min);
+        volumeObject.addUniform('u_boxMax', '3fv', boundingBox.max);
+
+        const textureUnit = 0;
+        // Data Texture
+        const dataArraySliceT = dataArray.get3DSliceAtTime(0);
+        const data3DTexture = Texture3D.fromDataArrayAtTime(dataArray, 0);
+        const width = dataArray.xLength;
+        const height = dataArray.yLength;
+        const depth = dataArray.zLength;
+        const minMax = dataArraySliceT.computeMinMax();
+        data3DTexture.normalizeData(minMax.min, minMax.max);
+        data3DTexture.internalFormat = this.gl.R8;
+        data3DTexture.format = this.gl.RED;
+
+        const dataTex = this.renderer.uploadTexture3D(data3DTexture, textureUnit);
+        if (!dataTex) {
+            console.error("[viewer.ts] Unable to upload data texture.");
+            return false;
+        }
+        volumeObject.addUniform('u_DataTex', '1i', textureUnit);
+
+        // Set texture size
+        volumeObject.addUniform('u_TextureSize', '3fv', [width, height, depth]);
+
+        // Transfer function texture
+        const tfWidth = 128;
+        const tfData = generateTFData(tfWidth, keypoints);
+        const data2DTexture = Texture2D.fromData(tfData, tfWidth, 1);
+        data2DTexture.internalFormat = this.gl.RGBA;
+        data2DTexture.format = this.gl.RGBA;
+        const tfTex = this.renderer.uploadTexture2D(data2DTexture,  textureUnit + 1);
+        if (!tfTex) {
+            console.error("[viewer.ts] Unable to upload transfer function texture.");
+            return false;
+        }
+        volumeObject.addUniform('u_TFTex', '1i', textureUnit + 1);
+        
+        // Noise texture
+        const noiseDimX = 128;
+        const noiseDimY = 128;
+        const noiseData = generateNoiseData(noiseDimX, noiseDimY);
+        const noise2DTexture = Texture2D.fromData(noiseData, noiseDimX, noiseDimY);
+        noise2DTexture.internalFormat = this.gl.R8;
+        noise2DTexture.format = this.gl.RED;
+        const noiseTex = this.renderer.uploadTexture2D(noise2DTexture, textureUnit + 2);
+        if (!noiseTex) {
+            console.error("[viewer.ts] Unable to upload noise texture.");
+            return false;
+        }
+        volumeObject.addUniform('u_NoiseTex', '1i', textureUnit + 2);
+
     }
     addObjectToScene(object: Object3D) {
         this.scene.addObject(object);
@@ -149,24 +242,23 @@ in vec4 v_vertexLocal;
 in vec2 v_UV;
 in vec3 v_Normal;
 out vec4 fragColor;
-
-uniform mat4 u_modelViewMatrix;
-uniform mat4 u_modelViewInverse;
 uniform mat4 u_modelMatrix;
 uniform mat4 u_modelInverse;
+uniform mat4 u_modelViewMatrix;
+uniform mat4 u_modelViewInverse;
 uniform mat4 u_viewInverse;
 uniform mat4 u_projectionMatrix;
 uniform mat4 u_projectionInverse;
 uniform vec3 u_viewDirWorldSpace;
 uniform vec3 u_cameraPosWorldSpace;
-uniform vec2 u_minMaxVal;
-uniform highp sampler3D u_DataTex;
 uniform int u_isOrtho;
-uniform highp sampler2D u_NoiseTex;
-uniform highp sampler2D u_TFTex;
+uniform highp sampler3D u_DataTex;
+uniform vec3 u_TextureSize;
 uniform vec3 u_boxMin;
 uniform vec3 u_boxMax;
-uniform vec3 u_TextureSize;
+uniform highp sampler2D u_TFTex;
+uniform vec2 u_minMaxVal;
+uniform highp sampler2D u_NoiseTex;
 
 // Computes object space view direction
 vec3 ObjSpaceViewDir(vec4 v) {
