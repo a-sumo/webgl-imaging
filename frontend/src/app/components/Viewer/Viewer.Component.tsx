@@ -14,10 +14,7 @@ const ViewerComponent = () => {
     { id: 0, x: 0, color: "#000000", alpha: 0 },
     { id: 1, x: 1, color: "#ffffff", alpha: 1 },
   ])
-  const [keypoints2, setKeypoints2] = useState<Keypoint[]>([
-    { id: 0, x: 0, color: "#000000", alpha: 0 },
-    { id: 1, x: 1, color: "#ffffff", alpha: 1 },
-  ])
+
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const canvas2Ref = useRef<HTMLCanvasElement | null>(null);
 
@@ -56,7 +53,7 @@ const ViewerComponent = () => {
         anliasing: true
       }) as WebGL2RenderingContext;
 
-      const viewer = new Viewer(gl, canvasElement, keypoints2, { useAxisHelper: true });
+      const viewer = new Viewer(gl, canvasElement, keypoints, { useAxisHelper: true });
 
       setView(viewer);
       // Prevent scrolling when mouse wheel is used inside the viewer
