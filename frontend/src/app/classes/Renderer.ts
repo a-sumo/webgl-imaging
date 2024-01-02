@@ -4,7 +4,7 @@ import { Geometry } from './Geometry';
 import { Object3D } from './Object3D';
 import { Texture2D } from './Texture2D';
 import { Texture3D } from './Texture3D';
-
+import { mat4, vec3 } from 'gl-matrix';
 export interface RendererConfig {
     faceCulling?: boolean;
     cullFace?: number;
@@ -15,8 +15,14 @@ export interface RendererConfig {
 
 export class Renderer {
     private gl: WebGL2RenderingContext;
-    private locations: { [name: string]: WebGLUniformLocation } = {};
-    private currentProgram: WebGLProgram | null = null;
+    private locations: { 
+        uniforms: { [name: string]: WebGLUniformLocation }, 
+        attributes: { [name: string]: number } 
+    } = {
+        uniforms: {},
+        attributes: {}
+    };    private currentProgram: WebGLProgram | null = null;
+
     private shaderPrograms: { [key: string]: WebGLProgram } = {};
     private config: RendererConfig;
 
@@ -32,12 +38,39 @@ export class Renderer {
         };
     }
 
-    addUniform(name: string, program: WebGLProgram) {
-        this.locations[name] = this.gl.getUniformLocation(program, name) as WebGLUniformLocation;
+    addUniformLocation(name: string, program: WebGLProgram) {
+        this.locations.uniforms[name] = this.gl.getUniformLocation(program, name) as WebGLUniformLocation;
     }
 
+    addAttributeLocation(name: string, program: WebGLProgram) {
+        this.locations.attributes[name] = this.gl.getAttribLocation(program, name) as number;
+    }
+
+    getSceneUniformLocations(scene: Scene) {
+        // Traverse the scene's objects
+        for (const object of scene.getObjects()) {
+            // Traverse the uniforms of the object
+            let shaderProgram = object.getShaderProgram();
+            for (const [name, value] of Object.entries(object.getUniforms())) {
+                // Add the uniform location to the renderer
+                this.addUniformLocation(name, shaderProgram);
+            }
+
+        }
+    }
+    getSceneAttributeLocations(scene: Scene) {
+        // Traverse the scene's objects
+        for (const object of scene.getObjects()) {
+            // Traverse the uniforms of the object
+            let shaderProgram = object.getShaderProgram();
+            for (const [name, value] of Object.entries(object.getAttributes())) {
+                // Add the attribute location to the renderer
+                this.addAttributeLocation(name, shaderProgram);
+            }
+        }
+    }
     setUniform(name: string, type: string, value: any) {
-        const location = this.locations[name];
+        const location = this.locations.uniforms[name];
         if (location === undefined) {
             console.warn(`Uniform "${name}" is not defined.`);
             return;
@@ -138,13 +171,7 @@ export class Renderer {
     getShaderProgram(name: string): WebGLProgram | undefined {
         return this.shaderPrograms[name];
     }
-    private setupWebGLContext(): void {
-        this.gl.enable(this.gl.CULL_FACE);
-        this.gl.cullFace(this.gl.FRONT);
-        this.gl.enable(this.gl.BLEND);
-        this.gl.blendFunc(this.gl.SRC_ALPHA, this.gl.ONE_MINUS_SRC_ALPHA);
-        this.gl.clearColor(199 / 255, 228 / 255, 252 / 255, 0.0);
-    }
+
     render(scene: Scene, camera: Camera) {
         // Clear the canvas
         this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
@@ -168,13 +195,20 @@ export class Renderer {
 
             // Draw the object
             if (object.getGeometry().indices.length > 0) {
-                this.gl.drawElements(this.gl.TRIANGLES, object.getGeometry().indices.length, this.gl.UNSIGNED_SHORT, 0);
+                this.gl.drawElements(this.gl.TRIANGLES, object.getGeometry().getIndexCount(), this.gl.UNSIGNED_SHORT, 0);
             } else {
                 this.gl.drawArrays(this.gl.TRIANGLES, 0, object.getGeometry().vertexCount);
             }
-
             // Unbind the VAO
             this.gl.bindVertexArray(null);
+            // Set the uniforms for the object
+            const modelViewMatrix = mat4.create();
+            const modelMatrix = mat4.create();
+            mat4.multiply(modelViewMatrix, camera.viewMatrix, modelMatrix);
+            for (const [name, uniform] of Object.entries(object.getUniforms())) {
+                this.setUniform(name, uniform.type, uniform.value);
+            }
+
         }
     }
 
@@ -198,20 +232,60 @@ export class Renderer {
         const geometry = object.getGeometry();
         const program = object.getShaderProgram();
 
-        // Set up the attributes
-        this.setupAttribute(program, 'position', geometry.vertices, 3);
-        this.setupAttribute(program, 'normal', geometry.normals, 3);
-        this.setupAttribute(program, 'uv', geometry.uvs, 2);
+        for (const [name, attribute] of Object.entries(object.getAttributes())) {
+            switch (attribute.type) {
+                case '1f':
+                    this.setupAttribute(program, name, attribute.value, 1);
+                    break;
+                case '1i':
+                    this.setupAttribute(program, name, attribute.value, 1);
+                    break;
+                case '2fv':
+                    this.setupAttribute(program, name, attribute.value, 2);
+                    break;
+                case '3fv':
+                    this.setupAttribute(program, name, attribute.value, 3);
+                    break;
+                case '4fv':
+                    this.setupAttribute(program, name, attribute.value, 4);
+                    break;
+                case '1iv':
+                    this.setupAttribute(program, name, attribute.value, 1);
+                    break;
+                case '2iv':
+                    this.setupAttribute(program, name, attribute.value, 2);
+                    break;
+                case '3iv':
+                    this.setupAttribute(program, name, attribute.value, 3);
+                    break;
+                case '4iv':
+                    this.setupAttribute(program, name, attribute.value, 4);
+                    break;
+                case '1fv':
+                    this.setupAttribute(program, name, attribute.value, 1);
+                    break;
+                case 'Matrix2fv':
+                    this.setupAttribute(program, name, attribute.value, 4); // 2x2 matrix
+                    break;
+                case 'Matrix3fv':
+                    this.setupAttribute(program, name, attribute.value, 9); // 3x3 matrix
+                    break;
+                case 'Matrix4fv':
+                    this.setupAttribute(program, name, attribute.value, 16); // 4x4 matrix
+                    break;
+                default:
+                    throw new Error(`Unsupported attribute type: ${attribute.type}`);
+            }
+        }        
 
-        // Set up the index attribute
+        // // Set up the index attribute
         const indexBuffer = this.createBuffer(this.gl, geometry.indices, this.gl.ELEMENT_ARRAY_BUFFER);
         this.gl.bindBuffer(this.gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
-
-        // Unbind the VAO
-        this.gl.bindVertexArray(null);
-
         // Store the VAO in the object
         object.setVAO(vao);
+
+        this.gl.bindVertexArray(null);
+
         return vao;
     }
 
@@ -248,14 +322,14 @@ export class Renderer {
 
         this.gl.texImage2D(
             this.gl.TEXTURE_2D,
-            0, 
+            0,
             texture.internalFormat,
-            width, 
-            height, 
-            0, 
-            texture.format, 
+            width,
+            height,
+            0,
+            texture.format,
             glType,
-            data 
+            data
         );
 
         this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MIN_FILTER, texture.minFilter);
@@ -300,10 +374,10 @@ export class Renderer {
 
         this.gl.texImage3D(
             this.gl.TEXTURE_3D,
-            0, 
+            0,
             texture.internalFormat,
             width,
-            height, 
+            height,
             depth,
             0,
             texture.format,
