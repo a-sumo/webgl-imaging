@@ -11,6 +11,8 @@ export class Renderer {
 
     constructor(gl: WebGL2RenderingContext) {
         this.gl = gl;
+        this.setupWebGLContext();
+
     }
 
     addUniform(name: string, program: WebGLProgram) {
@@ -108,15 +110,22 @@ export class Renderer {
         this.gl.vertexAttribPointer(location, size, this.gl.FLOAT, false, 0, 0);
     }
 
-    createShaderProgram(vertexShaderSource: string, fragmentShaderSource: string, name: string): void {
+    createShaderProgram(vertexShaderSource: string, fragmentShaderSource: string, name: string): boolean {
         const program = this.buildShaders(vertexShaderSource, fragmentShaderSource);
         if (program !== false) {
             this.shaderPrograms[name] = program;
         }
+        return program !== false;
     }
 
     getShaderProgram(name: string): WebGLProgram | undefined {
         return this.shaderPrograms[name];
+    }
+    private setupWebGLContext(): void {
+        this.gl.enable(this.gl.CULL_FACE);
+        this.gl.cullFace(this.gl.FRONT);
+        this.gl.enable(this.gl.BLEND);
+        this.gl.blendFunc(this.gl.SRC_ALPHA, this.gl.ONE_MINUS_SRC_ALPHA);
     }
     render(scene: Scene, camera: Camera) {
         // Clear the canvas

@@ -80,5 +80,7 @@ export class AxisHelper {
         this.gl.enableVertexAttribArray(1);
     
         this.gl.drawArrays(this.gl.LINES, 0, 6);
+
+        this.gl.useProgram(null);
     }
 }

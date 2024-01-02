@@ -12,8 +12,8 @@ export class Object3D {
 		};
 	private geometry: Geometry;
 	private shaderProgram: WebGLProgram;
-	private uniforms: { [name: string]: any } = {};
-    private vao: WebGLVertexArrayObject | null;
+	private uniforms: { [name: string]: {type: string, value: any} } = {};
+	private vao: WebGLVertexArrayObject | null;
 
 	constructor(gl: WebGL2RenderingContext, geometry: Geometry, shaderProgram: WebGLProgram) {
 		this.modelMatrix = mat4.create();
@@ -67,20 +67,20 @@ export class Object3D {
 	}
 
 	setVAO(vao: WebGLVertexArrayObject | null): void {
-        this.vao = vao;
-    }
+		this.vao = vao;
+	}
 
-    getVAO(): WebGLVertexArrayObject | null {
-        return this.vao;
-    }
+	getVAO(): WebGLVertexArrayObject | null {
+		return this.vao;
+	}
 	// Reset the model matrix to the identity matrix
 	resetTransform(): void {
 		mat4.identity(this.modelMatrix);
 		this.computeBoundingBox(this.geometry);
 	}
-    public getGeometry(): Geometry {
-        return this.geometry;
-    }
+	public getGeometry(): Geometry {
+		return this.geometry;
+	}
 	// New getter methods
 	getOrientation() {
 		return this.orientation;
@@ -102,8 +102,23 @@ export class Object3D {
 		return this.shaderProgram;
 	}
 
+    // Add a new uniform
+    addUniform(name: string, type: string, value: any) {
+        this.uniforms[name] = { type, value };
+		console.log(this.uniforms);
+    }
+
 	getUniforms() {
 		return this.uniforms;
 	}
+
+    // Update the value of a uniform
+    updateUniform(name: string, value: any) {
+        if (this.uniforms[name] === undefined) {
+            throw new Error(`Uniform ${name} does not exist.`);
+        }
+
+        this.uniforms[name].value = value;
+    }
 
 }

@@ -7,7 +7,7 @@ import NRRDLoader from '../../classes/nrrdLoader';
 import { Keypoint } from '../KeypointEditor/keypoint.interface';
 import KeypointEditorComponent from '../KeypointEditor/KeypointEditor.Component'
 import styles from './Viewer.Component.module.css';
-
+import { Viewer2 } from '../../classes/viewer2';
 const ViewerComponent = () => {
 
   const [keypoints, setKeypoints] = useState<Keypoint[]>([
@@ -39,8 +39,15 @@ const ViewerComponent = () => {
   useEffect(() => {
     const canvasElement = canvasRef.current;
     if (canvasElement) {
+      // Get the WebGL context, with no premultiplied alpha
+      const gl = canvasRef.current?.getContext('webgl2', {
+        alpha: false,
+        premultipliedAlpha: false,
+        anliasing: true
+      }) as WebGL2RenderingContext;
 
-      const viewer = new Viewer(canvasElement, keypoints, { useAxisHelper: true });
+      const viewer = new Viewer(gl, canvasElement, keypoints, { useAxisHelper: true });
+      const viewer2 = new Viewer2(gl, canvasElement, keypoints, { useAxisHelper: true });
       setView(viewer);
 
       // Prevent scrolling when mouse wheel is used inside the viewer
@@ -53,6 +60,7 @@ const ViewerComponent = () => {
         const nrrdLoader = new NRRDLoader();
         const dataArray = nrrdLoader.parse(arrayBuffer);
         viewer.init(dataArray);
+        viewer2.init(dataArray);
         setIsViewInit(true);
         // viewer.updateTransferFunction(keypoints);
 

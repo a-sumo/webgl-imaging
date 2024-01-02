@@ -11,12 +11,14 @@ import {
 import { Camera } from './Camera';
 import { Arcball } from './Arcball';
 import { AxisHelper } from './AxisHelper';
+import { Renderer } from './Renderer';
+import { Scene } from './Scene';
 
 interface Keypoint {
-    id: number; // Unique id of the keypoint
-    x: number; // x-coordinate of the keypoint on the curve
-    color: string; // Color in hexadecimal format
-    alpha: number;// Alpha value 
+    id: number; 
+    x: number; 
+    color: string; 
+    alpha: number;
 }
 export interface ViewerConfig {
     useAxisHelper?: boolean;
@@ -24,9 +26,13 @@ export interface ViewerConfig {
 
 export class Viewer {
     canvas: HTMLCanvasElement;
+    private renderer: Renderer;
+    private scene: Scene;
+    private animationId: number | null = null;
+
     keypoints: Keypoint[];
     gl: WebGL2RenderingContext;
-    camera: Camera | null;
+    camera: Camera;
     controls: Arcball | null;
     cube: Object3D | null;
     dataTexture: WebGLTexture | null;
@@ -35,19 +41,34 @@ export class Viewer {
     locations!: any;
     valid: boolean;
     minMaxVal: number[];
-    axisHelper?: AxisHelper; 
+    axisHelper?: AxisHelper;
 
-    constructor(canvas: HTMLCanvasElement, keypoints: Keypoint[], config: ViewerConfig) {
+
+    constructor(gl: WebGL2RenderingContext, canvas: HTMLCanvasElement, keypoints: Keypoint[], config: ViewerConfig) {
+
         this.canvas = canvas;
-        this.keypoints = keypoints;
-        this.valid = false;
-        this.dataTexture = null;
-        this.tfTexture = null;
+        this.gl = gl;
+        this.renderer = new Renderer(gl);
+        this.scene = new Scene();
         const fieldOfView = Math.PI / 2.;
         const aspect = this.canvas.width / this.canvas.height;
         const zNear = 0.1;
         const zFar = 100.0;
-        this.camera = null;
+
+        this.camera = new Camera(fieldOfView, aspect, zNear, zFar);
+        this.camera.setPosition(vec3.fromValues(2.0, 2.0, 0.0));
+        this.camera.setTarget(vec3.fromValues(0., 0., 0.));
+        this.camera.setUp(vec3.fromValues(0, 1, 0));
+        this.camera = new Camera(fieldOfView, aspect, zNear, zFar);
+        if (!this.camera) {
+            console.error("[viewer.ts] Unable to initialize the Camera");
+            throw new Error("Unable to initialize the Camera");
+        }
+
+        this.keypoints = keypoints;
+        this.valid = false;
+        this.dataTexture = null;
+        this.tfTexture = null;
         this.controls = null;
         this.cube = null;
         this.volumeShaderProgram = null;
@@ -74,13 +95,6 @@ export class Viewer {
             }
         }
 
-        // Get the WebGL context, with no premultiplied alpha
-        this.gl = canvas.getContext('webgl2', {
-            alpha: false,
-            premultipliedAlpha: false,
-            anliasing: true
-        }) as WebGL2RenderingContext;
-
         if (!this.gl) {
             alert('Unable to initialize WebGL. Your browser or machine may not support it.');
             return;
@@ -103,7 +117,6 @@ export class Viewer {
 
     initgl(dataArray: DataArray): boolean {
         const mesh = new BoxBufferGeometry(this.gl);
-        console.log("mesh", mesh);
         if (!mesh) {
             alert('Unable to set mesh data.');
         }
@@ -121,11 +134,6 @@ export class Viewer {
         this.cube.setScale([1, 1, 1]);
         this.cube.translate([0, 0, 0]);
         // Set up the camera
-        const fieldOfView = Math.PI / 2.;
-        const aspect = this.canvas.width / this.canvas.height;
-        const zNear = 0.1;
-        const zFar = 100.0;
-        this.camera = new Camera(fieldOfView, aspect, zNear, zFar);
         if (!this.camera) {
             console.error("[viewer.ts] Unable to initialize the Camera");
             throw new Error("Unable to initialize the Camera");
@@ -262,7 +270,7 @@ export class Viewer {
     display() {
         if (!this.valid || !this.cube || !this.camera) return;
         // Clear the canvas
-        this.gl.clearColor(199/255, 228/255, 252/255, 0.0);
+        this.gl.clearColor(199 / 255, 228 / 255, 252 / 255, 0.0);
         this.gl.clear(this.gl.COLOR_BUFFER_BIT); // Clear depth buffer bit
         // this.gl.enable(this.gl.DEPTH_TEST); // Enable depth testing
         this.gl.bindVertexArray(this.cube.getGeometry().getVao());
@@ -292,11 +300,7 @@ export class Viewer {
         this.tfTexture = initializeTFTexture(this.gl, tfWidth, 1, tfData, textureUnit + 1);
         this.gl.activeTexture(this.gl.TEXTURE0 + 1);
         this.gl.uniform1i(this.locations.uniforms.u_TFTex, textureUnit + 1);
-        console.log("active texture unit before reset", this.gl.getParameter(this.gl.ACTIVE_TEXTURE));
-        // Restore the previous active texture unit
         this.gl.activeTexture(previousTextureUnit);
-        console.log("active texture unit after reset ", this.gl.getParameter(this.gl.ACTIVE_TEXTURE));
-
         this.display();
     }
 
@@ -364,10 +368,8 @@ export class Viewer {
         this.tfTexture = initializeTFTexture(this.gl, tfWidth, 1, tfData, textureUnit + 1);
         this.gl.activeTexture(this.gl.TEXTURE0 + 1);
         this.gl.uniform1i(this.locations.uniforms.u_TFTex, textureUnit + 1);
-        console.log("active texture unit before reset", this.gl.getParameter(this.gl.ACTIVE_TEXTURE));
         // Restore the previous active texture unit
         this.gl.activeTexture(previousTextureUnit);
-        console.log("active texture unit after reset ", this.gl.getParameter(this.gl.ACTIVE_TEXTURE));
 
         // this.display();
         // this.updateTextures();
@@ -479,9 +481,9 @@ in vec3 v_Normal;
 out vec4 fragColor;
 
 uniform mat4 u_modelViewMatrix;
+uniform mat4 u_modelViewInverse;
 uniform mat4 u_modelMatrix;
 uniform mat4 u_modelInverse;
-uniform mat4 u_modelViewInverse;
 uniform mat4 u_viewInverse;
 uniform mat4 u_projectionMatrix;
 uniform mat4 u_projectionInverse;
