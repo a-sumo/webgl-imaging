@@ -8,6 +8,7 @@ import { BoxBufferGeometry } from './BoxBufferGeometry';
 import { Texture2D } from './Texture2D';
 import { Texture3D } from './Texture3D';
 import { generateTFData, generateNoiseData} from './utils';
+import { Arcball } from './Arcball';
 
 export interface ViewerConfig {
     useAxisHelper?: boolean;
@@ -43,7 +44,6 @@ export class Viewer2 {
         this.camera.setPosition(vec3.fromValues(2.0, 2.0, 0.0));
         this.camera.setTarget(vec3.fromValues(0., 0., 0.));
         this.camera.setUp(vec3.fromValues(0, 1, 0));
-        this.camera = new Camera(fieldOfView, aspect, zNear, zFar);
         if (!this.camera) {
             console.error("[viewer.ts] Unable to initialize the Camera");
             throw new Error("Unable to initialize the Camera");
@@ -64,52 +64,94 @@ export class Viewer2 {
             throw new Error("Unable to get the shader program");
         }
         const volumeObject = new Object3D(this.gl, cubeGeometry, volumeShaderProgram);
-        // Add uniforms
-      
+        // Add object to scene
+        this.scene.addObject('volumeObject', volumeObject);
+
+        // Declare attribute names and types
+        volumeObject.declareAttributes([
+            { name: 'a_Position', type: '3fv' },
+            { name: 'a_Normal', type: '3fv' },
+            { name: 'a_UV', type: '2fv' },
+        ]);
+        // Get attribute locations
+        this.renderer.getSceneAttributeLocations(this.scene);
+
+        // Set attribute data
+        volumeObject.setAttributeData('a_Position', cubeGeometry.vertices);
+        volumeObject.setAttributeData('a_Normal', cubeGeometry.normals);
+        volumeObject.setAttributeData('a_UV', cubeGeometry.uvs);
+
+        this.renderer.setupVAO(volumeObject);
+
+        //  Declare uniform names and types 
+        volumeObject.declareUniforms([
+            { name: 'u_modelViewMatrix', type: 'Matrix4fv' },
+            { name: 'u_projectionMatrix', type: 'Matrix4fv' },
+            { name: 'u_modelMatrix', type: 'Matrix4fv' },
+            { name: 'u_modelInverse', type: 'Matrix4fv' },
+            { name: 'u_modelViewInverse', type: 'Matrix4fv' },
+            { name: 'u_viewInverse', type: 'Matrix4fv' },
+            { name: 'u_projectionMatrix', type: 'Matrix4fv' },
+            { name: 'u_projectionInverse', type: 'Matrix4fv' },
+            { name: 'u_viewDirWorldSpace', type: '3fv' },
+            { name: 'u_cameraPosWorldSpace', type: '3fv' },
+            { name: 'u_isOrtho', type: '1i' },
+            { name: 'u_DataTex', type: '1i' },
+            { name: 'u_TFTex', type: '1i' },
+            { name: 'u_NoiseTex', type: '1i' },
+            { name: 'u_TextureSize', type: '3fv' },
+            { name: 'u_boxMin', type: '3fv' },
+            { name: 'u_boxMax', type: '3fv' },
+            { name: 'u_minMaxVal', type: '2fv' },
+        ]);
+        // Get uniform locations
+        this.renderer.getSceneUniformLocations(this.scene);
+    
+
         // Initialize modelMatrix
-        volumeObject.addUniform('u_modelMatrix', 'Matrix4fv', volumeObject.modelMatrix);
+        volumeObject.setUniformData('u_modelMatrix', volumeObject.modelMatrix);
         // Initialize modelInverse 
         const modelInverse = mat4.create();
-        volumeObject.addUniform('u_modelInverse', 'Matrix4fv', modelInverse);
+        volumeObject.setUniformData('u_modelInverse', modelInverse);
         // Initialize modelViewMatrix
         const modelViewMatrix = mat4.create();
         mat4.multiply(modelViewMatrix, this.camera.viewMatrix, volumeObject.modelMatrix);
-        volumeObject.addUniform('u_modelViewMatrix', 'Matrix4fv', modelViewMatrix);
+        volumeObject.setUniformData('u_modelViewMatrix', modelViewMatrix);
         // Initialize modelViewInverse
         const modelViewInverse = mat4.create();
         mat4.invert(modelViewInverse, modelViewMatrix);
-        volumeObject.addUniform('u_modelViewInverse', 'Matrix4fv', modelViewInverse);
+        volumeObject.setUniformData('u_modelViewInverse', modelViewInverse);
         // Initialize viewInverse
         const viewInverse = mat4.create();
         mat4.invert(viewInverse, this.camera.viewMatrix);
-        volumeObject.addUniform('u_viewInverse', 'Matrix4fv', viewInverse);
+        volumeObject.setUniformData('u_viewInverse', viewInverse);
 
         // Initialize projectionMatrix 
-        volumeObject.addUniform('u_projectionMatrix', 'Matrix4fv', this.camera.projectionMatrix);
+        volumeObject.setUniformData('u_projectionMatrix', this.camera.projectionMatrix);
 
         // Initialize projectionMatrix Inverse
         const projectionInverse = mat4.create();
         mat4.invert(projectionInverse, this.camera.projectionMatrix);
-        volumeObject.addUniform('u_projectionInverse', 'Matrix4fv', projectionInverse);
+        volumeObject.setUniformData('u_projectionInverse', projectionInverse);
 
         // Initialize viewDirWorldSpace
         const viewDirWorldSpace = vec3.create();
         vec3.subtract(viewDirWorldSpace, this.camera.target, this.camera.position);
         vec3.normalize(viewDirWorldSpace, viewDirWorldSpace);
-        volumeObject.addUniform('u_viewDirWorldSpace', '3fv', viewDirWorldSpace);
+        volumeObject.setUniformData('u_viewDirWorldSpace', viewDirWorldSpace);
 
-        volumeObject.addUniform('u_cameraPosWorldSpace', '3fv', this.camera.position);
+        volumeObject.setUniformData('u_cameraPosWorldSpace', this.camera.position);
 
         const isOrtho = 0;
-        volumeObject.addUniform('u_isOrtho', '1i', isOrtho);
+        volumeObject.setUniformData('u_isOrtho', isOrtho);
 
         // Threshold Values
-        volumeObject.addUniform('u_minMaxVal', '2fv', [0.0, 1.0]);
+        volumeObject.setUniformData('u_minMaxVal', [0.0, 1.0]);
 
         // Bounding Box
         const boundingBox = volumeObject.getBoundingBox();
-        volumeObject.addUniform('u_boxMin', '3fv', boundingBox.min);
-        volumeObject.addUniform('u_boxMax', '3fv', boundingBox.max);
+        volumeObject.setUniformData('u_boxMin', boundingBox.min);
+        volumeObject.setUniformData('u_boxMax', boundingBox.max);
 
         const textureUnit = 0;
         // Data Texture
@@ -128,10 +170,10 @@ export class Viewer2 {
             console.error("[viewer.ts] Unable to upload data texture.");
             return false;
         }
-        volumeObject.addUniform('u_DataTex', '1i', textureUnit);
+        volumeObject.setUniformData('u_DataTex', textureUnit);
 
         // Set texture size
-        volumeObject.addUniform('u_TextureSize', '3fv', [width, height, depth]);
+        volumeObject.setUniformData('u_TextureSize', [width, height, depth]);
 
         // Transfer function texture
         const tfWidth = 128;
@@ -144,7 +186,7 @@ export class Viewer2 {
             console.error("[viewer.ts] Unable to upload transfer function texture.");
             return false;
         }
-        volumeObject.addUniform('u_TFTex', '1i', textureUnit + 1);
+        volumeObject.setUniformData('u_TFTex', textureUnit + 1);
         
         // Noise texture
         const noiseDimX = 128;
@@ -158,16 +200,77 @@ export class Viewer2 {
             console.error("[viewer.ts] Unable to upload noise texture.");
             return false;
         }
-        volumeObject.addUniform('u_NoiseTex', '1i', textureUnit + 2);
+        volumeObject.setUniformData('u_NoiseTex', textureUnit + 2);
+
+        // 
+        // Add controls
+        this.controls = new Arcball(this.camera, this.canvas);
+        this.controls.update();
+
+        // TODO: Add axis helper
+
+        // render the scene
+        // this.startAnimationLoop();
 
     }
-    addObjectToScene(object: Object3D) {
-        this.scene.addObject(object);
-        this.renderer.setupVAO(object);
+    updateUniforms() {
+        if (!this.scene) {
+            console.error("[viewer.ts] Scene is invalid.");
+            return false;
+        }
+        const volumeObject = this.scene.getObject('volumeObject');
+        if (!volumeObject) {
+            console.error("[viewer.ts] Volume object is invalid.");
+            return false;
+        }
+        if (!this.camera) {
+            console.error("[viewer.ts] Camera is invalid.");
+            return false;
+        }
+    
+        // Update modelViewMatrix 
+        const modelViewMatrix = mat4.create();
+        mat4.multiply(modelViewMatrix, this.camera.viewMatrix, volumeObject.modelMatrix);
+        volumeObject.setUniformData('u_modelViewMatrix', modelViewMatrix);
+    
+        // Update modelMatrix
+        volumeObject.setUniformData('u_modelMatrix', volumeObject.modelMatrix);
+    
+        // Update viewInverse
+        const viewInverse = mat4.create();
+        mat4.invert(viewInverse, this.camera.viewMatrix);
+        volumeObject.setUniformData('u_viewInverse', viewInverse);
+    
+        // Update modelViewInverse 
+        const modelViewInverse = mat4.create();
+        mat4.invert(modelViewInverse, modelViewMatrix);
+        volumeObject.setUniformData('u_modelViewInverse', modelViewInverse);
+    
+        // Update modelInverse 
+        const modelInverse = mat4.create();
+        mat4.invert(modelInverse, volumeObject.modelMatrix);
+        volumeObject.setUniformData('u_modelInverse', modelInverse);
+    
+        // Update projectionMatrix 
+        volumeObject.setUniformData('u_projectionMatrix', this.camera.projectionMatrix);
+    
+        // Update projectionMatrix Inverse
+        const projectionInverse = mat4.create();
+        mat4.invert(projectionInverse, this.camera.projectionMatrix);
+        volumeObject.setUniformData('u_projectionInverse', projectionInverse);
+    
+        // Update viewDirWorldSpace 
+        const viewDirWorldSpace = vec3.create();
+        vec3.subtract(viewDirWorldSpace, this.camera.target, this.camera.position);
+        vec3.normalize(viewDirWorldSpace, viewDirWorldSpace);
+        volumeObject.setUniformData('u_viewDirWorldSpace', viewDirWorldSpace);
+    
+        volumeObject.setUniformData('u_cameraPosWorldSpace', this.camera.position);
+    
+        return true;
     }
-
-    removeObjectFromScene(object: Object3D) {
-        this.scene.removeObject(object);
+    removeObjectFromScene(name: string) {
+        this.scene.removeObject(name);
     }
 
     startAnimationLoop() {
@@ -203,13 +306,15 @@ out vec4 v_vertexLocal;
 out vec2 v_UV;
 out vec3 v_Normal;
 void main() {
-  // vertex position in clip space
+  // vertex position in clip ƒspace
   v_Position = u_projectionMatrix * u_modelViewMatrix * vec4(a_Position, 1.0);
   gl_Position = v_Position;
   // vertex position in object space
   v_vertexLocal = vec4(a_Position, 1.0);
   // vertex UV coordinates
   v_UV = a_UV;
+  // vertex normal in object space
+  v_Normal = a_Normal;
 }
 `;
 
