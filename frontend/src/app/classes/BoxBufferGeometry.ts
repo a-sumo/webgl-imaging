@@ -57,10 +57,7 @@ export class BoxBufferGeometry extends Geometry {
 		// this.setAttribute( 'uv', new Float32BufferAttribute( uvs, 2 ) );
 
 		function buildPlane( u: string, v: string, w: string, udir: number, vdir: number, width: number, height: number, depth: number, gridX: number, gridY: number, materialIndex: number ) {
-            // const componentToIndex: any = { 'x': 0, 'y': 1, 'z': 2 };
-            // const uIndex = componentToIndex[u];
-            // const vIndex = componentToIndex[v];
-            // const wIndex = componentToIndex[w];
+
 			const segmentWidth = width / gridX;
 			const segmentHeight = height / gridY;
 
@@ -105,7 +102,6 @@ export class BoxBufferGeometry extends Geometry {
 					// now apply vector to normal buffer
 
 					normals.push( vector.x, vector.y, vector.z);
-
 					// uvs
 
 					uvs.push( ix / gridX );
