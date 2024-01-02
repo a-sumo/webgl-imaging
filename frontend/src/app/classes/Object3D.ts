@@ -12,7 +12,8 @@ export class Object3D {
 		};
 	private geometry: Geometry;
 	private shaderProgram: WebGLProgram;
-	private uniforms: { [name: string]: {type: string, value: any} } = {};
+	private uniforms: { [name: string]: { type: string, value: any } } = {};
+	private attributes: { [name: string]: { type: string, value: any } } = {};
 	private vao: WebGLVertexArrayObject | null;
 
 	constructor(gl: WebGL2RenderingContext, geometry: Geometry, shaderProgram: WebGLProgram) {
@@ -94,31 +95,47 @@ export class Object3D {
 		return this.boundingBox;
 	}
 
-	setUniform(name: string, value: any) {
-		this.uniforms[name] = value;
-	}
-
 	getShaderProgram() {
 		return this.shaderProgram;
 	}
+	declareUniforms(uniforms: { name: string, type: string }[]) {
+		for (const uniform of uniforms) {
+			this.uniforms[uniform.name] = { type: uniform.type, value: null };
+		}
+	}
+	declareAttributes(attributes: { name: string, type: string }[]) {
+		for( const attribute of attributes){
+			this.attributes[attribute.name] = { type: attribute.type, value: null };
+		}
+	}
+	// Set the initial value of a uniform
+	setUniformData(name: string, value: any) {
+		if (this.uniforms[name] === undefined) {
+			throw new Error(`Uniform ${name} does not exist.`);
+		}
+		this.uniforms[name].value = value;
+	}
+	// Set the initial value of an attribute
+	setAttributeData(name: string, value: any) {
+		if (this.attributes[name] === undefined) {
+			throw new Error(`Attribute ${name} does not exist.`);
+		}
+		this.attributes[name].value = value;
+	}
+	// Update the value of a uniform
+	updateUniform(name: string, value: any) {
+		if (this.uniforms[name] === undefined) {
+			throw new Error(`Uniform ${name} does not exist.`);
+		}
 
-    // Add a new uniform
-    addUniform(name: string, type: string, value: any) {
-        this.uniforms[name] = { type, value };
-		console.log(this.uniforms);
-    }
+		this.uniforms[name].value = value;
+	}
 
 	getUniforms() {
 		return this.uniforms;
 	}
-
-    // Update the value of a uniform
-    updateUniform(name: string, value: any) {
-        if (this.uniforms[name] === undefined) {
-            throw new Error(`Uniform ${name} does not exist.`);
-        }
-
-        this.uniforms[name].value = value;
-    }
+	getAttributes(){
+		return this.attributes;
+	}
 
 }
