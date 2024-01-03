@@ -9,7 +9,8 @@ import { Texture2D } from './Texture2D';
 import { Texture3D } from './Texture3D';
 import { generateTFData, generateNoiseData} from './utils';
 import { Arcball } from './Arcball';
-
+import { Geometry } from './Geometry';
+import { AxisHelper2 } from './AxisHelper2';
 export interface ViewerConfig {
     useAxisHelper?: boolean;
 }
@@ -22,7 +23,9 @@ interface Keypoint {
 export class Viewer2 {
     canvas: HTMLCanvasElement;
     gl: WebGL2RenderingContext;
-
+    private config: ViewerConfig = {
+        useAxisHelper: true,
+    };
     private scene: Scene;
     private camera: Camera;
     private renderer: Renderer;
@@ -92,14 +95,14 @@ export class Viewer2 {
 
         //  Declare uniform names and types 
         volumeObject.declareUniforms([
-            { name: 'u_modelViewMatrix', type: 'Matrix4fv' },
-            { name: 'u_projectionMatrix', type: 'Matrix4fv' },
-            { name: 'u_modelMatrix', type: 'Matrix4fv' },
-            { name: 'u_modelInverse', type: 'Matrix4fv' },
-            { name: 'u_modelViewInverse', type: 'Matrix4fv' },
-            { name: 'u_viewInverse', type: 'Matrix4fv' },
-            { name: 'u_projectionMatrix', type: 'Matrix4fv' },
-            { name: 'u_projectionInverse', type: 'Matrix4fv' },
+            { name: 'u_ModelView', type: 'Matrix4fv' },
+            { name: 'u_Projection', type: 'Matrix4fv' },
+            { name: 'u_Model', type: 'Matrix4fv' },
+            { name: 'u_ModelInverse', type: 'Matrix4fv' },
+            { name: 'u_ModelViewInverse', type: 'Matrix4fv' },
+            { name: 'u_ViewInverse', type: 'Matrix4fv' },
+            { name: 'u_Projection', type: 'Matrix4fv' },
+            { name: 'u_ProjectionInverse', type: 'Matrix4fv' },
             { name: 'u_viewDirWorldSpace', type: '3fv' },
             { name: 'u_cameraPosWorldSpace', type: '3fv' },
             { name: 'u_isOrtho', type: '1i' },
@@ -116,30 +119,30 @@ export class Viewer2 {
     
 
         // Initialize modelMatrix
-        volumeObject.setUniformData('u_modelMatrix', volumeObject.modelMatrix);
+        volumeObject.setUniformData('u_Model', volumeObject.modelMatrix);
         // Initialize modelInverse 
         const modelInverse = mat4.create();
-        volumeObject.setUniformData('u_modelInverse', modelInverse);
+        volumeObject.setUniformData('u_ModelInverse', modelInverse);
         // Initialize modelViewMatrix
         const modelViewMatrix = mat4.create();
         mat4.multiply(modelViewMatrix, this.camera.viewMatrix, volumeObject.modelMatrix);
-        volumeObject.setUniformData('u_modelViewMatrix', modelViewMatrix);
+        volumeObject.setUniformData('u_ModelView', modelViewMatrix);
         // Initialize modelViewInverse
         const modelViewInverse = mat4.create();
         mat4.invert(modelViewInverse, modelViewMatrix);
-        volumeObject.setUniformData('u_modelViewInverse', modelViewInverse);
+        volumeObject.setUniformData('u_ModelViewInverse', modelViewInverse);
         // Initialize viewInverse
         const viewInverse = mat4.create();
         mat4.invert(viewInverse, this.camera.viewMatrix);
-        volumeObject.setUniformData('u_viewInverse', viewInverse);
+        volumeObject.setUniformData('u_ViewInverse', viewInverse);
 
         // Initialize projectionMatrix 
-        volumeObject.setUniformData('u_projectionMatrix', this.camera.projectionMatrix);
+        volumeObject.setUniformData('u_Projection', this.camera.projectionMatrix);
 
         // Initialize projectionMatrix Inverse
         const projectionInverse = mat4.create();
         mat4.invert(projectionInverse, this.camera.projectionMatrix);
-        volumeObject.setUniformData('u_projectionInverse', projectionInverse);
+        volumeObject.setUniformData('u_ProjectionInverse', projectionInverse);
 
         // Initialize viewDirWorldSpace
         const viewDirWorldSpace = vec3.create();
@@ -214,8 +217,31 @@ export class Viewer2 {
         this.controls = new Arcball(this.camera, this.canvas);
         this.controls.update();
 
-        // TODO: Add axis helper
+        if (this.config.useAxisHelper) {
+            this.renderer.render(this.scene, this.camera);
+        }
+        // Add Helper
+        if (this.config.useAxisHelper) {
+            const vertices = [
+                0, 0, 0, 1, 0, 0, // X axis
+                0, 0, 0, 0, 1, 0, // Y axis
+                0, 0, 0, 0, 0, 1  // Z axis
+            ];
+        
+            const colors = [
+                1, 0, 0, 1, 0, 0, // X axis - red
+                0, 1, 0, 0, 1, 0, // Y axis - green
+                0, 0, 1, 0, 0, 1  // Z axis - blue
+            ];
+            const axisHelperGeometry = new Geometry(this.gl,
+                {
+                    vertices: vertices,
+                    colors: colors
+                });
 
+            const axisHelper = new AxisHelper2(this.gl, axisHelperGeometry);
+            this.scene.addObject('axisHelper', axisHelper);
+        }
         // render the scene
         this.startAnimationLoop();
 
@@ -238,33 +264,33 @@ export class Viewer2 {
         // Update modelViewMatrix 
         const modelViewMatrix = mat4.create();
         mat4.multiply(modelViewMatrix, this.camera.viewMatrix, volumeObject.modelMatrix);
-        volumeObject.setUniformData('u_modelViewMatrix', modelViewMatrix);
+        volumeObject.setUniformData('u_ModelView', modelViewMatrix);
     
         // Update modelMatrix
-        volumeObject.setUniformData('u_modelMatrix', volumeObject.modelMatrix);
+        volumeObject.setUniformData('u_Model', volumeObject.modelMatrix);
     
         // Update viewInverse
         const viewInverse = mat4.create();
         mat4.invert(viewInverse, this.camera.viewMatrix);
-        volumeObject.setUniformData('u_viewInverse', viewInverse);
+        volumeObject.setUniformData('u_ViewInverse', viewInverse);
     
         // Update modelViewInverse 
         const modelViewInverse = mat4.create();
         mat4.invert(modelViewInverse, modelViewMatrix);
-        volumeObject.setUniformData('u_modelViewInverse', modelViewInverse);
+        volumeObject.setUniformData('u_ModelViewInverse', modelViewInverse);
     
         // Update modelInverse 
         const modelInverse = mat4.create();
         mat4.invert(modelInverse, volumeObject.modelMatrix);
-        volumeObject.setUniformData('u_modelInverse', modelInverse);
+        volumeObject.setUniformData('u_ModelInverse', modelInverse);
     
         // Update projectionMatrix 
-        volumeObject.setUniformData('u_projectionMatrix', this.camera.projectionMatrix);
+        volumeObject.setUniformData('u_Projection', this.camera.projectionMatrix);
     
         // Update projectionMatrix Inverse
         const projectionInverse = mat4.create();
         mat4.invert(projectionInverse, this.camera.projectionMatrix);
-        volumeObject.setUniformData('u_projectionInverse', projectionInverse);
+        volumeObject.setUniformData('u_ProjectionInverse', projectionInverse);
     
         // Update viewDirWorldSpace 
         const viewDirWorldSpace = vec3.create();
@@ -284,6 +310,9 @@ export class Viewer2 {
         const renderFrame = () => {
             this.updateUniforms();
             this.renderer.render(this.scene, this.camera);
+            if (this.config.useAxisHelper) {
+                this.renderer.render(this.scene, this.camera);
+            }
             this.animationId = requestAnimationFrame(renderFrame);
         };
         this.animationId = requestAnimationFrame(renderFrame);
@@ -306,8 +335,8 @@ layout(location = 0) in vec3 a_Position;
 layout(location = 1) in vec3 a_Normal;
 layout(location = 2) in vec2 a_UV;
 
-uniform mat4 u_modelViewMatrix;
-uniform mat4 u_projectionMatrix;
+uniform mat4 u_ModelView;
+uniform mat4 u_Projection;
 
 out vec4 v_Position;
 out vec4 v_vertexLocal;
@@ -315,7 +344,7 @@ out vec2 v_UV;
 out vec3 v_Normal;
 void main() {
   // vertex position in clip ƒspace
-  v_Position = u_projectionMatrix * u_modelViewMatrix * vec4(a_Position, 1.0);
+  v_Position = u_Projection * u_ModelView * vec4(a_Position, 1.0);
   gl_Position = v_Position;
   // vertex position in object space
   v_vertexLocal = vec4(a_Position, 1.0);
@@ -355,13 +384,13 @@ in vec4 v_vertexLocal;
 in vec2 v_UV;
 in vec3 v_Normal;
 out vec4 fragColor;
-uniform mat4 u_modelMatrix;
-uniform mat4 u_modelInverse;
-uniform mat4 u_modelViewMatrix;
-uniform mat4 u_modelViewInverse;
-uniform mat4 u_viewInverse;
-uniform mat4 u_projectionMatrix;
-uniform mat4 u_projectionInverse;
+uniform mat4 u_Model;
+uniform mat4 u_ModelInverse;
+uniform mat4 u_ModelView;
+uniform mat4 u_ModelViewInverse;
+uniform mat4 u_ViewInverse;
+uniform mat4 u_Projection;
+uniform mat4 u_ProjectionInverse;
 uniform vec3 u_viewDirWorldSpace;
 uniform vec3 u_cameraPosWorldSpace;
 uniform int u_isOrtho;
@@ -375,7 +404,7 @@ uniform highp sampler2D u_NoiseTex;
 
 // Computes object space view direction
 vec3 ObjSpaceViewDir(vec4 v) {
-    vec3 objSpaceCameraPos = (u_modelInverse * vec4(u_cameraPosWorldSpace.xyz, 1.0)).xyz;
+    vec3 objSpaceCameraPos = (u_ModelInverse * vec4(u_cameraPosWorldSpace.xyz, 1.0)).xyz;
     return objSpaceCameraPos - v.xyz;
 }
 float getNoise(vec2 uv) {
@@ -478,7 +507,7 @@ RayInfo getRayBack2Front(vec3 vertexLocal)
 
    // Check if camera is inside AABB
    vec3 farPos = ray.startPos + ray.direction * ray.aabbInters.y - vec3(0.5f, 0.5f, 0.5f);
-   vec4 clipPos = u_projectionMatrix * u_modelViewMatrix * vec4(farPos, 1.0f);
+   vec4 clipPos = u_Projection * u_ModelView * vec4(farPos, 1.0f);
    ray.aabbInters += min(clipPos.w, 0.0);
 
    ray.endPos = ray.startPos + ray.direction * ray.aabbInters.y;
@@ -526,7 +555,7 @@ void main() {
  
         // Get the density/sample value of the current position
         float density = getDensity((currPos - vec3(0.5f, 0.5f, 0.5f)));
-        vec3 worldPos = (u_modelMatrix * v_vertexLocal).xyz + vec3(0.5f, 0.5f, 0.5f);
+        vec3 worldPos = (u_Model * v_vertexLocal).xyz + vec3(0.5f, 0.5f, 0.5f);
         // float density = length((currPos - vec3(0.5f, 0.5f, 0.5f)) * 4.5);
         // Apply visibility window
         if (density < u_minMaxVal.x || density > u_minMaxVal.y) continue;

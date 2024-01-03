@@ -11,20 +11,32 @@ export class Object3D {
 			max: vec3.fromValues(1, 1, 1)
 		};
 	private geometry: Geometry;
-	private shaderProgram: WebGLProgram;
+	public shaderProgram: WebGLProgram;
 	private uniforms: { [name: string]: { type: string, value: any } } = {};
 	private attributes: { [name: string]: { type: string, value: any } } = {};
 	private vao: WebGLVertexArrayObject | null;
 
-	constructor(gl: WebGL2RenderingContext, geometry: Geometry, shaderProgram: WebGLProgram) {
-		this.modelMatrix = mat4.create();
-		this.geometry = geometry;
-		this.shaderProgram = shaderProgram;
-		this.computeBoundingBox(geometry);
-		this.vao = null; // Initialize vao
-
-	}
-
+    constructor(gl: WebGL2RenderingContext, geometry: Geometry, shaderProgram?: WebGLProgram) {
+        this.modelMatrix = mat4.create();
+        this.geometry = geometry;
+        this.shaderProgram = shaderProgram || this.createDefaultShaderProgram(gl);
+        this.computeBoundingBox(geometry);
+        this.vao = null; // Initialize vao
+    }
+    private createDefaultShaderProgram(gl: WebGL2RenderingContext): WebGLProgram {
+        // Create a simple default shader program here
+        // This is just a placeholder, replace it with your actual shader program creation code
+        const vertexShader = gl.createShader(gl.VERTEX_SHADER);
+        const fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
+        const program = gl.createProgram();
+		if (!vertexShader || !fragmentShader || !program) {
+			throw new Error('Failed to create default shaders/program.');
+		}
+        gl.attachShader(program, vertexShader);
+        gl.attachShader(program, fragmentShader);
+        gl.linkProgram(program);
+        return program;
+    }
 	private computeBoundingBox(geometry: Geometry): void {
 		if (geometry.vertices.length % 3 !== 0) {
 			throw new Error('Vertices array length must be a multiple of 3.');

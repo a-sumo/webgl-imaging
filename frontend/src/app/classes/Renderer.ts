@@ -5,7 +5,7 @@ import { Object3D } from './Object3D';
 import { Texture2D } from './Texture2D';
 import { Texture3D } from './Texture3D';
 import { mat4, vec3 } from 'gl-matrix';
-
+import { AxisHelper2 } from './AxisHelper2';
 export interface RendererConfig {
     faceCulling?: boolean;
     alphaBlending?: boolean;
@@ -80,6 +80,7 @@ export class Renderer {
             }
         }
     }
+
     setUniform(name: string, type: string, value: any) {
         const location = this.locations.uniforms[name];
         if (location === undefined) {
@@ -224,7 +225,31 @@ export class Renderer {
 
         }
     }
+    renderAxisHelper(axisHelper: AxisHelper2, modelViewMatrix: Float32List, projectionMatrix: Float32List) {
+        if (axisHelper.shaderProgram === null) {
+            console.error('Shader program is null');
+            return;
+        }
+    
+        // Set the uniform values
+        const u_ModelView = this.gl.getUniformLocation(axisHelper.shaderProgram, 'u_ModelView');
+        this.gl.uniformMatrix4fv(u_ModelView, false, modelViewMatrix);
+        const u_Projection = this.gl.getUniformLocation(axisHelper.shaderProgram, 'u_Projection');
+        this.gl.uniformMatrix4fv(u_Projection, false, projectionMatrix);
+    
+        // Render the axis lines
+        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, axisHelper.getVertexBuffer);
+        this.gl.vertexAttribPointer(0, 3, this.gl.FLOAT, false, 0, 0);
+        this.gl.enableVertexAttribArray(0);
+    
+        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, axisHelper.getColorBuffer);
+        this.gl.vertexAttribPointer(1, 3, this.gl.FLOAT, false, 0, 0);
+        this.gl.enableVertexAttribArray(1);
+    
+        this.gl.drawArrays(this.gl.LINES, 0, 6);
 
+        this.gl.useProgram(null);
+    }
     createBuffer(gl: WebGL2RenderingContext, data: number[], target: WebGL2RenderingContext["ARRAY_BUFFER"] | WebGL2RenderingContext["ELEMENT_ARRAY_BUFFER"] = gl.ARRAY_BUFFER): WebGLBuffer | null {
         const buffer = gl.createBuffer();
         if (target !== null) {
@@ -406,4 +431,5 @@ export class Renderer {
         this.gl.activeTexture(previousTextureUnit);
         return glTexture;
     }
+
 }

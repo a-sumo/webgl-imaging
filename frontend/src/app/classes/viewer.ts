@@ -14,9 +14,9 @@ import { AxisHelper } from './AxisHelper';
 import { Scene } from './Scene';
 
 interface Keypoint {
-    id: number; 
-    x: number; 
-    color: string; 
+    id: number;
+    x: number;
+    color: string;
     alpha: number;
 }
 export interface ViewerConfig {
@@ -70,13 +70,13 @@ export class Viewer {
         this.minMaxVal = [0.0, 1.0];
         this.locations = {
             uniforms: {
-                u_modelViewMatrix: null,
-                u_modelMatrix: null,
-                u_modelViewInverse: null,
-                u_modelInverse: null,
-                u_viewInverse: null,
-                u_projectionMatrix: null,
-                u_projectionInverse: null,
+                u_ModelView: null,
+                u_Model: null,
+                u_ModelViewInverse: null,
+                u_ModelInverse: null,
+                u_ViewInverse: null,
+                u_Projection: null,
+                u_ProjectionInverse: null,
                 u_viewDirWorldSpace: null,
                 u_cameraPosWorldSpace: null,
                 u_isOrtho: null,
@@ -119,7 +119,7 @@ export class Viewer {
         const indices = mesh.indices;
         const normals = mesh.normals;
         const uvs = mesh.uvs;
-        const cubeGeo = new Geometry(this.gl, vertices, indices, normals, uvs);
+        const cubeGeo = new Geometry(this.gl, { vertices: vertices, indices: indices, normals: normals, uvs: uvs });
 
         this.cube = new Object3D(this.gl, cubeGeo, this.volumeShaderProgram);
         if (!this.cube) {
@@ -128,7 +128,7 @@ export class Viewer {
         }
         this.cube.setScale([1, 1, 0.8]);
         // fix the cube orientation
-        this.cube.rotate(Math.PI , [1, 0, 0]);
+        this.cube.rotate(Math.PI, [1, 0, 0]);
         this.cube.translate([0, 0, 0]);
         // Set up the camera
         if (!this.camera) {
@@ -151,13 +151,13 @@ export class Viewer {
     }
     initUniforms(program: any, dataArray: DataArray): boolean {
         // Get uniform locations
-        this.locations.uniforms.u_modelViewMatrix = this.gl.getUniformLocation(program, 'u_modelViewMatrix');
-        this.locations.uniforms.u_modelMatrix = this.gl.getUniformLocation(program, 'u_modelMatrix');
-        this.locations.uniforms.u_modelViewInverse = this.gl.getUniformLocation(program, 'u_modelViewInverse');
-        this.locations.uniforms.u_modelInverse = this.gl.getUniformLocation(program, 'u_modelInverse');
-        this.locations.uniforms.u_viewInverse = this.gl.getUniformLocation(program, 'u_viewInverse');
-        this.locations.uniforms.u_projectionMatrix = this.gl.getUniformLocation(program, 'u_projectionMatrix');
-        this.locations.uniforms.u_projectionInverse = this.gl.getUniformLocation(program, 'u_projectionInverse');
+        this.locations.uniforms.u_ModelView = this.gl.getUniformLocation(program, 'u_ModelView');
+        this.locations.uniforms.u_Model = this.gl.getUniformLocation(program, 'u_Model');
+        this.locations.uniforms.u_ModelViewInverse = this.gl.getUniformLocation(program, 'u_ModelViewInverse');
+        this.locations.uniforms.u_ModelInverse = this.gl.getUniformLocation(program, 'u_ModelInverse');
+        this.locations.uniforms.u_ViewInverse = this.gl.getUniformLocation(program, 'u_ViewInverse');
+        this.locations.uniforms.u_Projection = this.gl.getUniformLocation(program, 'u_Projection');
+        this.locations.uniforms.u_ProjectionInverse = this.gl.getUniformLocation(program, 'u_ProjectionInverse');
         this.locations.uniforms.u_viewDirWorldSpace = this.gl.getUniformLocation(program, 'u_viewDirWorldSpace');
         this.locations.uniforms.u_cameraPosWorldSpace = this.gl.getUniformLocation(program, 'u_cameraPosWorldSpace');
 
@@ -182,27 +182,27 @@ export class Viewer {
         // Initialize modelViewMatrix
         const modelViewMatrix = mat4.create();
         mat4.multiply(modelViewMatrix, this.camera.viewMatrix, this.cube.modelMatrix);
-        this.gl.uniformMatrix4fv(this.locations.uniforms.u_modelViewMatrix, false, modelViewMatrix);
+        this.gl.uniformMatrix4fv(this.locations.uniforms.u_ModelView, false, modelViewMatrix);
         // Initialize modelViewInverse
         const modelViewInverse = mat4.create();
         mat4.invert(modelViewInverse, modelViewMatrix);
-        this.gl.uniformMatrix4fv(this.locations.uniforms.u_modelViewInverse, false, modelViewInverse);
+        this.gl.uniformMatrix4fv(this.locations.uniforms.u_ModelViewInverse, false, modelViewInverse);
         // Update modelInverse 
         const modelInverse = mat4.create();
         mat4.invert(modelInverse, this.cube.modelMatrix);
-        this.gl.uniformMatrix4fv(this.locations.uniforms.u_modelInverse, false, modelInverse);
+        this.gl.uniformMatrix4fv(this.locations.uniforms.u_ModelInverse, false, modelInverse);
         // Initialize modelMatrix
-        this.gl.uniformMatrix4fv(this.locations.uniforms.u_modelMatrix, false, this.cube.modelMatrix);
+        this.gl.uniformMatrix4fv(this.locations.uniforms.u_Model, false, this.cube.modelMatrix);
         // Initialize viewInverse
         const viewInverse = mat4.create();
         mat4.invert(viewInverse, this.camera.viewMatrix);
-        this.gl.uniformMatrix4fv(this.locations.uniforms.u_viewInverse, false, viewInverse);
+        this.gl.uniformMatrix4fv(this.locations.uniforms.u_ViewInverse, false, viewInverse);
         // Initialize projectionMatrix 
-        this.gl.uniformMatrix4fv(this.locations.uniforms.u_projectionMatrix, false, this.camera.projectionMatrix);
+        this.gl.uniformMatrix4fv(this.locations.uniforms.u_Projection, false, this.camera.projectionMatrix);
         // Initialize projectionMatrix Inverse
         const projectionInverse = mat4.create();
         mat4.invert(projectionInverse, this.camera.projectionMatrix);
-        this.gl.uniformMatrix4fv(this.locations.uniforms.u_projectionInverse, false, projectionInverse);
+        this.gl.uniformMatrix4fv(this.locations.uniforms.u_ProjectionInverse, false, projectionInverse);
         // Initialize viewDirWorldSpace
         const viewDirWorldSpace = vec3.create();
         vec3.subtract(viewDirWorldSpace, this.camera.target, this.camera.position);
@@ -318,28 +318,28 @@ export class Viewer {
         // Update modelViewMatrix 
         const modelViewMatrix = mat4.create();
         mat4.multiply(modelViewMatrix, this.camera.viewMatrix, this.cube.modelMatrix);
-        this.gl.uniformMatrix4fv(this.locations.uniforms.u_modelViewMatrix, false, modelViewMatrix);
+        this.gl.uniformMatrix4fv(this.locations.uniforms.u_ModelView, false, modelViewMatrix);
         // Update modelMatrix
-        this.gl.uniformMatrix4fv(this.locations.uniforms.u_modelMatrix, false, this.cube.modelMatrix);
+        this.gl.uniformMatrix4fv(this.locations.uniforms.u_Model, false, this.cube.modelMatrix);
         // Update viewInverse
         const viewInverse = mat4.create();
         mat4.invert(viewInverse, this.camera.viewMatrix);
-        this.gl.uniformMatrix4fv(this.locations.uniforms.u_viewInverse, false, viewInverse);
+        this.gl.uniformMatrix4fv(this.locations.uniforms.u_ViewInverse, false, viewInverse);
 
         // Update modelViewInverse 
         const modelViewInverse = mat4.create();
         mat4.invert(modelViewInverse, modelViewMatrix);
-        this.gl.uniformMatrix4fv(this.locations.uniforms.u_modelViewInverse, false, modelViewInverse);
+        this.gl.uniformMatrix4fv(this.locations.uniforms.u_ModelViewInverse, false, modelViewInverse);
         // Update modelInverse 
         const modelInverse = mat4.create();
         mat4.invert(modelInverse, this.cube.modelMatrix);
-        this.gl.uniformMatrix4fv(this.locations.uniforms.u_modelInverse, false, modelInverse);
+        this.gl.uniformMatrix4fv(this.locations.uniforms.u_ModelInverse, false, modelInverse);
         // Update projectionMatrix 
-        this.gl.uniformMatrix4fv(this.locations.uniforms.u_projectionMatrix, false, this.camera.projectionMatrix);
+        this.gl.uniformMatrix4fv(this.locations.uniforms.u_Projection, false, this.camera.projectionMatrix);
         // Update projectionMatrix Inverse
         const projectionInverse = mat4.create();
         mat4.invert(projectionInverse, this.camera.projectionMatrix)
-        this.gl.uniformMatrix4fv(this.locations.uniforms.u_projectionInverse, false, projectionInverse);
+        this.gl.uniformMatrix4fv(this.locations.uniforms.u_ProjectionInverse, false, projectionInverse);
         // Update viewDirWorldSpace 
         const viewDirWorldSpace = vec3.create();
         vec3.subtract(viewDirWorldSpace, this.camera.target, this.camera.position);
@@ -429,8 +429,8 @@ layout(location = 0) in vec3 a_Position;
 layout(location = 1) in vec3 a_Normal;
 layout(location = 2) in vec2 a_UV;
 
-uniform mat4 u_modelViewMatrix;
-uniform mat4 u_projectionMatrix;
+uniform mat4 u_ModelView;
+uniform mat4 u_Projection;
 
 out vec4 v_Position;
 out vec4 v_vertexLocal;
@@ -438,7 +438,7 @@ out vec2 v_UV;
 out vec3 v_Normal;
 void main() {
   // vertex position in clip space
-  v_Position = u_projectionMatrix * u_modelViewMatrix * vec4(a_Position, 1.0);
+  v_Position = u_Projection * u_ModelView * vec4(a_Position, 1.0);
   gl_Position = v_Position;
   // vertex position in object space
   v_vertexLocal = vec4(a_Position, 1.0);
@@ -477,13 +477,13 @@ in vec2 v_UV;
 in vec3 v_Normal;
 out vec4 fragColor;
 
-uniform mat4 u_modelViewMatrix;
-uniform mat4 u_modelViewInverse;
-uniform mat4 u_modelMatrix;
-uniform mat4 u_modelInverse;
-uniform mat4 u_viewInverse;
-uniform mat4 u_projectionMatrix;
-uniform mat4 u_projectionInverse;
+uniform mat4 u_ModelView;
+uniform mat4 u_ModelViewInverse;
+uniform mat4 u_Model;
+uniform mat4 u_ModelInverse;
+uniform mat4 u_ViewInverse;
+uniform mat4 u_Projection;
+uniform mat4 u_ProjectionInverse;
 uniform vec3 u_viewDirWorldSpace;
 uniform vec3 u_cameraPosWorldSpace;
 uniform vec2 u_minMaxVal;
@@ -497,7 +497,7 @@ uniform vec3 u_TextureSize;
 
 // Computes object space view direction
 vec3 ObjSpaceViewDir(vec4 v) {
-    vec3 objSpaceCameraPos = (u_modelInverse * vec4(u_cameraPosWorldSpace.xyz, 1.0)).xyz;
+    vec3 objSpaceCameraPos = (u_ModelInverse * vec4(u_cameraPosWorldSpace.xyz, 1.0)).xyz;
     return objSpaceCameraPos - v.xyz;
 }
 float getNoise(vec2 uv) {
@@ -600,7 +600,7 @@ RayInfo getRayBack2Front(vec3 vertexLocal)
 
    // Check if camera is inside AABB
    vec3 farPos = ray.startPos + ray.direction * ray.aabbInters.y - vec3(0.5f, 0.5f, 0.5f);
-   vec4 clipPos = u_projectionMatrix * u_modelViewMatrix * vec4(farPos, 1.0f);
+   vec4 clipPos = u_Projection * u_ModelView * vec4(farPos, 1.0f);
    ray.aabbInters += min(clipPos.w, 0.0);
 
    ray.endPos = ray.startPos + ray.direction * ray.aabbInters.y;
@@ -648,7 +648,7 @@ void main() {
  
         // Get the density/sample value of the current position
         float density = getDensity((currPos - vec3(0.5f, 0.5f, 0.5f)));
-        vec3 worldPos = (u_modelMatrix * v_vertexLocal).xyz + vec3(0.5f, 0.5f, 0.5f);
+        vec3 worldPos = (u_Model * v_vertexLocal).xyz + vec3(0.5f, 0.5f, 0.5f);
         // float density = length((currPos - vec3(0.5f, 0.5f, 0.5f)) * 4.5);
         // Apply visibility window
         if (density < u_minMaxVal.x || density > u_minMaxVal.y) continue;

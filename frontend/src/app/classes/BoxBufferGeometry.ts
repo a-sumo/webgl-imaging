@@ -152,7 +152,7 @@ export class BoxBufferGeometry extends Geometry {
 
 		}
 
-        super(gl, vertices, indices, normals, uvs);
+        super(gl, {vertices: vertices, indices: indices, normals: normals, uvs: uvs});
 
         this.parameters = {
             width: width,

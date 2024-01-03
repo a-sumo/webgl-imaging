@@ -9,13 +9,13 @@ export class AxisHelper {
         layout(location = 0) in vec3 a_Position;
         layout(location = 1) in vec3 a_Color;
 
-        uniform mat4 u_ModelViewMatrix;
-        uniform mat4 u_ProjectionMatrix;
+        uniform mat4 u_ModelView;
+        uniform mat4 u_Projection;
 
         out vec3 v_Color;
 
         void main() {
-            gl_Position = u_ProjectionMatrix * u_ModelViewMatrix * vec4(a_Position, 1.0);
+            gl_Position = u_Projection * u_ModelView * vec4(a_Position, 1.0);
             v_Color = a_Color;
         }
     `;
@@ -65,10 +65,10 @@ export class AxisHelper {
         this.gl.useProgram(this.shaderProgram);
     
         // Set the uniform values
-        const u_ModelViewMatrix = this.gl.getUniformLocation(this.shaderProgram, 'u_ModelViewMatrix');
-        this.gl.uniformMatrix4fv(u_ModelViewMatrix, false, modelViewMatrix);
-        const u_ProjectionMatrix = this.gl.getUniformLocation(this.shaderProgram, 'u_ProjectionMatrix');
-        this.gl.uniformMatrix4fv(u_ProjectionMatrix, false, projectionMatrix);
+        const u_ModelView = this.gl.getUniformLocation(this.shaderProgram, 'u_ModelView');
+        this.gl.uniformMatrix4fv(u_ModelView, false, modelViewMatrix);
+        const u_Projection = this.gl.getUniformLocation(this.shaderProgram, 'u_Projection');
+        this.gl.uniformMatrix4fv(u_Projection, false, projectionMatrix);
     
         // Render the axis lines
         this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.vertexBuffer);

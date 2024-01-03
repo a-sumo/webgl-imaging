@@ -6,26 +6,30 @@ export class Geometry {
     public indices: number[];
     public normals: number[];
     public uvs: number[];
+    public colors: number[]; // New color data
     private vertexBuffer: WebGLBuffer | null;
     private indexBuffer: WebGLBuffer | null;
     private normalBuffer: WebGLBuffer | null;
     private uvBuffer: WebGLBuffer | null;
+    private colorBuffer: WebGLBuffer | null; // New color buffer
     private indexCount: number;
     private vao: WebGLVertexArrayObject | null;
 
-    constructor(gl: WebGL2RenderingContext, vertices: number[], indices: number[], normals: number[], uvs: number[]) {
+    constructor(gl: WebGL2RenderingContext, { vertices= [], indices = [], normals = [], uvs = [], colors = [] }: { vertices: number[], indices?: number[], normals?: number[], uvs?: number[], colors?: number[] }) {
         this.vertices = vertices;
         this.indices = indices;
         this.normals = normals;
         this.uvs = uvs;
+        this.colors = colors;
         this.indexCount = indices.length;
-
+    
         // Create and initialize the buffers
         this.vertexBuffer = this.createBuffer(gl, vertices);
-        this.indexBuffer = this.createBuffer(gl, indices, gl.ELEMENT_ARRAY_BUFFER as WebGL2RenderingContext["ARRAY_BUFFER"]);
-        this.normalBuffer = this.createBuffer(gl, normals);
-        this.uvBuffer = this.createBuffer(gl, uvs);
-
+        this.indexBuffer = indices.length > 0 ? this.createBuffer(gl, indices, gl.ELEMENT_ARRAY_BUFFER as WebGL2RenderingContext["ARRAY_BUFFER"]) : null;
+        this.normalBuffer = normals.length > 0 ? this.createBuffer(gl, normals) : null;
+        this.uvBuffer = uvs.length > 0 ? this.createBuffer(gl, uvs) : null;
+        this.colorBuffer = colors.length > 0 ? this.createBuffer(gl, colors) : null;
+    
         // Create the VAO
         this.vao = gl.createVertexArray();
         this.setupVAO(gl);
@@ -64,8 +68,17 @@ export class Geometry {
 
         // Set up the UV attribute
         gl.bindBuffer(gl.ARRAY_BUFFER, this.uvBuffer);
+        // Set up the UV attribute
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.uvBuffer);
         gl.enableVertexAttribArray(2);
         gl.vertexAttribPointer(2, 2, gl.FLOAT, false, 0, 0);
+
+        // Set up the color attribute
+        if (this.colors.length > 0) {
+            gl.bindBuffer(gl.ARRAY_BUFFER, this.colorBuffer);
+            gl.enableVertexAttribArray(3);
+            gl.vertexAttribPointer(3, 3, gl.FLOAT, false, 0, 0);
+        }
 
         // Unbind the VAO
         gl.bindVertexArray(null);
@@ -83,17 +96,31 @@ export class Geometry {
     getNormalBuffer() {
         return this.normalBuffer;
     }
+
     getUVBuffer() {
         return this.uvBuffer;
     }
+
+    // New getter for the color buffer
+    getColorBuffer() {
+        return this.colorBuffer;
+    }
+
     // Getter for the index count
     getIndexCount() {
         return this.indexCount;
     }
+
     get vertexCount(): number {
         return this.vertices.length / 3;
     }
+
     getVao() {
         return this.vao;
+    }
+
+    // New getter for the color data
+    getColors() {
+        return this.colors;
     }
 }
