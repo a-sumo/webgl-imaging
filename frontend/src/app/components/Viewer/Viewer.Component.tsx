@@ -38,43 +38,26 @@ const ViewerComponent = () => {
         return response.arrayBuffer();
       });
   };
+  useEffect(() => {
+    const handleBlur = () => {
+      view?.stopAnimationLoop();
+      console.log("blur");
+    }
 
-  // useEffect(() => {
-  //   const canvasElement = canvasRef.current;
+    const handleFocus = () => {
+      view?.startAnimationLoop();
+      console.log("focus");
+    }
 
-  //   if (canvasElement) {
-  //     // Get the WebGL context, with no premultiplied alpha
-  //     const gl = canvasRef.current?.getContext('webgl2', {
-  //       alpha: false,
-  //       premultipliedAlpha: false,
-  //       anliasing: true
-  //     }) as WebGL2RenderingContext;
+    window.addEventListener('blur', handleBlur, { passive: true });
+    window.addEventListener('focus', handleFocus, { passive: true });
 
-  //     const viewer = new Viewer(gl, canvasElement, keypoints, { useAxisHelper: true });
+    return () => {
+      window.removeEventListener('blur', handleBlur);
+      window.removeEventListener('focus', handleFocus)
+    }
+  }, [view]);
 
-  //     setView(viewer);
-  //     // Prevent scrolling when mouse wheel is used inside the viewer
-  //     canvasElement.addEventListener('wheel', function (event) {
-  //       event.preventDefault();
-  //     }, { passive: false });
-
-  //     // Load the NRRD data
-  //     getNrrdData().then(arrayBuffer => {
-  //       const nrrdLoader = new NRRDLoader();
-  //       const dataArray = nrrdLoader.parse(arrayBuffer);
-  //       viewer.init(dataArray);
-  //       setIsViewInit(true);
-  //       viewer.updateTransferFunction(keypoints);
-
-  //     }).catch(error => {
-  //       console.error('Failed to fetch NRRD data:', error);
-  //     });
-  //   }
-
-  //   return () => {
-  //   };
-  // }, []);
-  
   useEffect(() => {
     const canvas2Element = canvasRef.current;
 
@@ -87,7 +70,6 @@ const ViewerComponent = () => {
       }) as WebGL2RenderingContext;
 
       const viewer = new Viewer(gl, canvas2Element, keypoints, { useAxisHelper: true });
-
       setView(viewer);
       // Prevent scrolling when mouse wheel is used inside the viewer
       canvas2Element.addEventListener('wheel', function (event) {
@@ -101,6 +83,7 @@ const ViewerComponent = () => {
         viewer.init(dataArray, keypoints);
         setIsViewInit(true);
         viewer.updateTransferFunction(keypoints);
+        viewer.startAnimationLoop();
 
       }).catch(error => {
         console.error('Failed to fetch NRRD data:', error);
