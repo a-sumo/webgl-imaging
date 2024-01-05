@@ -7,7 +7,7 @@ import DataArray from './dataArray';
 import { BoxBufferGeometry } from './BoxBufferGeometry';
 import { Texture2D } from './Texture2D';
 import { Texture3D } from './Texture3D';
-import { generateTFData, generateNoiseData} from './utils';
+import { generateTFData, generateNoiseData } from './utils';
 import { Arcball } from './Arcball';
 import { Geometry } from './Geometry';
 import { AxisHelper2 } from './AxisHelper2';
@@ -15,9 +15,9 @@ export interface ViewerConfig {
     useAxisHelper?: boolean;
 }
 interface Keypoint {
-    id: number; 
-    x: number; 
-    color: string; 
+    id: number;
+    x: number;
+    color: string;
     alpha: number;
 }
 export class Viewer2 {
@@ -36,7 +36,7 @@ export class Viewer2 {
 
         this.canvas = canvas;
         this.gl = gl;
-        this.renderer = new Renderer(gl, { clearColor: [199 / 255, 228 / 255, 252 / 255, 0.0]});
+        this.renderer = new Renderer(gl, { clearColor: [199 / 255, 228 / 255, 252 / 255, 0.0] });
         this.scene = new Scene();
         const fieldOfView = Math.PI / 2.;
         const aspect = this.canvas.width / this.canvas.height;
@@ -54,9 +54,9 @@ export class Viewer2 {
     }
     init(dataArray: DataArray, keypoints: Keypoint[]) {
         // define cube geometry
-        const cubeGeometry =  new BoxBufferGeometry(this.gl);
+        const cubeGeometry = new BoxBufferGeometry(this.gl);
         // define shader program
-        const isShaderProgramValid = this.renderer.createShaderProgram(vertexShaderSource, fragmentShaderSource, 'volumeRenderer');
+        const isShaderProgramValid = this.renderer.createShaderProgram(volumeRendererVert, volumeRendererFrag, 'volumeRenderer');
         if (!isShaderProgramValid) {
             console.error("[viewer.ts] Unable to create the shader program");
             throw new Error("Unable to create the shader program");
@@ -66,14 +66,14 @@ export class Viewer2 {
             console.error("[viewer.ts] Unable to get the shader program");
             throw new Error("Unable to get the shader program");
         }
-        const volumeObject = new Object3D(this.gl, cubeGeometry, volumeShaderProgram);
+        const volumeObject = new Object3D(cubeGeometry, volumeShaderProgram);
         if (!volumeObject) {
             console.error("[viewer.ts] Unable to create the object");
             throw new Error("Unable to create the object");
         }
         volumeObject.setScale([1, 1, 0.8])
         // fix the cube orientation
-        volumeObject.rotate(Math.PI , [1, 0, 0]);
+        volumeObject.rotate(Math.PI, [1, 0, 0]);
         // Add object to scene
         this.scene.addObject('volumeObject', volumeObject);
 
@@ -83,8 +83,6 @@ export class Viewer2 {
             { name: 'a_Normal', type: '3fv' },
             { name: 'a_UV', type: '2fv' },
         ]);
-        // Get attribute locations
-        this.renderer.getSceneAttributeLocations(this.scene);
 
         // Set attribute data
         volumeObject.setAttributeData('a_Position', cubeGeometry.vertices);
@@ -114,10 +112,15 @@ export class Viewer2 {
             { name: 'u_boxMax', type: '3fv' },
             { name: 'u_minMaxVal', type: '2fv' },
         ]);
-        // Get uniform locations
-        this.renderer.getSceneUniformLocations(this.scene);
-    
 
+        // Get uniform locations 
+        // TODO: This should be renamed 
+        // Set active shader program
+        // this.gl.useProgram(volumeShaderProgram);
+
+        // Initialize uniform values
+        // TODO: a shader should have a list of required uniforms
+        // these should be initialized in a concerted manner
         // Initialize modelMatrix
         volumeObject.setUniformData('u_Model', volumeObject.modelMatrix);
         // Initialize modelInverse 
@@ -191,13 +194,13 @@ export class Viewer2 {
         const data2DTexture = Texture2D.fromData(tfData, tfWidth, 1);
         data2DTexture.internalFormat = this.gl.RGBA;
         data2DTexture.format = this.gl.RGBA;
-        const tfTex = this.renderer.uploadTexture2D(data2DTexture,  textureUnit + 1);
+        const tfTex = this.renderer.uploadTexture2D(data2DTexture, textureUnit + 1);
         if (!tfTex) {
             console.error("[viewer.ts] Unable to upload transfer function texture.");
             return false;
         }
         volumeObject.setUniformData('u_TFTex', textureUnit + 1);
-        
+
         // Noise texture
         const noiseDimX = 128;
         const noiseDimY = 128;
@@ -217,9 +220,6 @@ export class Viewer2 {
         this.controls = new Arcball(this.camera, this.canvas);
         this.controls.update();
 
-        if (this.config.useAxisHelper) {
-            this.renderer.render(this.scene, this.camera);
-        }
         // Add Helper
         if (this.config.useAxisHelper) {
             const vertices = [
@@ -227,7 +227,7 @@ export class Viewer2 {
                 0, 0, 0, 0, 1, 0, // Y axis
                 0, 0, 0, 0, 0, 1  // Z axis
             ];
-        
+
             const colors = [
                 1, 0, 0, 1, 0, 0, // X axis - red
                 0, 1, 0, 0, 1, 0, // Y axis - green
@@ -238,11 +238,59 @@ export class Viewer2 {
                     vertices: vertices,
                     colors: colors
                 });
+            console.log("axisHelperGeometry", axisHelperGeometry);
+            const isShaderProgramValid = this.renderer.createShaderProgram(axisHelperVert, axisHelperFrag, 'axisHelper');
+            if (!isShaderProgramValid) {
+                console.error("[viewer.ts] Unable to create the shader program");
+                throw new Error("Unable to create the shader program");
+            }
+            const axisHelperShaderProgram = this.renderer.getShaderProgram('axisHelper');
+            if (!axisHelperShaderProgram) {
+                console.error("[viewer.ts] Unable to get the shader program");
+                throw new Error("Unable to get the shader program");
+            }
 
-            const axisHelper = new AxisHelper2(this.gl, axisHelperGeometry);
-            this.scene.addObject('axisHelper', axisHelper);
+            this.gl.useProgram(axisHelperShaderProgram);
+
+            const axisHelperObject = new AxisHelper2(axisHelperGeometry, axisHelperShaderProgram);
+            // Add object to scene
+            this.scene.addObject('axisHelper', axisHelperObject);
+            // Declare attribute names and types
+            axisHelperObject.declareAttributes([
+                { name: 'a_Position', type: '3fv' },
+                { name: 'a_Color', type: '3fv' },
+            ]);
+            // Set attribute data
+            axisHelperObject.setAttributeData('a_Position', axisHelperGeometry.vertices);
+            axisHelperObject.setAttributeData('a_Color', axisHelperGeometry.colors);
+            console.log("axisHelperObject.getAttributes", axisHelperObject.getAttributes());
+            // Setup vertex array object
+            this.renderer.setupVAO(axisHelperObject);
+
+            //  Declare uniform names and types 
+            axisHelperObject.declareUniforms([
+                { name: 'u_ModelView', type: 'Matrix4fv' },
+                { name: 'u_Projection', type: 'Matrix4fv' },
+            ]);
+
+            // Initialize uniform values
+
+            // modelViewMatrix
+            const modelViewMatrix = mat4.create();
+            mat4.multiply(modelViewMatrix, this.camera.viewMatrix, axisHelperObject.modelMatrix);
+            axisHelperObject.setUniformData('u_ModelView', modelViewMatrix);
+            // projectionMatrix 
+            axisHelperObject.setUniformData('u_Projection', this.camera.projectionMatrix);
+
         }
+        // Get uniform locations
+        this.renderer.getSceneUniformLocations(this.scene);
+        console.log("locations", this.renderer.printUniformLocations(this.scene));
+        // Get attribute locations
+        this.renderer.getSceneAttributeLocations(this.scene);
+
         // render the scene
+        // this.renderer.render(this.scene, this.camera);
         this.startAnimationLoop();
 
     }
@@ -260,46 +308,52 @@ export class Viewer2 {
             console.error("[viewer.ts] Camera is invalid.");
             return false;
         }
-    
+
         // Update modelViewMatrix 
         const modelViewMatrix = mat4.create();
         mat4.multiply(modelViewMatrix, this.camera.viewMatrix, volumeObject.modelMatrix);
         volumeObject.setUniformData('u_ModelView', modelViewMatrix);
-    
+
         // Update modelMatrix
         volumeObject.setUniformData('u_Model', volumeObject.modelMatrix);
-    
+
         // Update viewInverse
         const viewInverse = mat4.create();
         mat4.invert(viewInverse, this.camera.viewMatrix);
         volumeObject.setUniformData('u_ViewInverse', viewInverse);
-    
+
         // Update modelViewInverse 
         const modelViewInverse = mat4.create();
         mat4.invert(modelViewInverse, modelViewMatrix);
         volumeObject.setUniformData('u_ModelViewInverse', modelViewInverse);
-    
+
         // Update modelInverse 
         const modelInverse = mat4.create();
         mat4.invert(modelInverse, volumeObject.modelMatrix);
         volumeObject.setUniformData('u_ModelInverse', modelInverse);
-    
+
         // Update projectionMatrix 
         volumeObject.setUniformData('u_Projection', this.camera.projectionMatrix);
-    
+
         // Update projectionMatrix Inverse
         const projectionInverse = mat4.create();
         mat4.invert(projectionInverse, this.camera.projectionMatrix);
         volumeObject.setUniformData('u_ProjectionInverse', projectionInverse);
-    
+
         // Update viewDirWorldSpace 
         const viewDirWorldSpace = vec3.create();
         vec3.subtract(viewDirWorldSpace, this.camera.target, this.camera.position);
         vec3.normalize(viewDirWorldSpace, viewDirWorldSpace);
         volumeObject.setUniformData('u_viewDirWorldSpace', viewDirWorldSpace);
-    
+
         volumeObject.setUniformData('u_cameraPosWorldSpace', this.camera.position);
-    
+        const axisHelperObject = this.scene.getObject('axisHelper');
+        if (axisHelperObject) {
+            axisHelperObject.setUniformData('u_ModelView', modelViewMatrix);
+            axisHelperObject.setUniformData('u_Projection', this.camera.projectionMatrix);
+        }
+
+
         return true;
     }
     removeObjectFromScene(name: string) {
@@ -310,9 +364,6 @@ export class Viewer2 {
         const renderFrame = () => {
             this.updateUniforms();
             this.renderer.render(this.scene, this.camera);
-            if (this.config.useAxisHelper) {
-                this.renderer.render(this.scene, this.camera);
-            }
             this.animationId = requestAnimationFrame(renderFrame);
         };
         this.animationId = requestAnimationFrame(renderFrame);
@@ -326,7 +377,7 @@ export class Viewer2 {
     }
 }
 
-const vertexShaderSource = `#version 300 es
+const volumeRendererVert = `#version 300 es
 
 precision lowp float;
 precision lowp sampler3D;
@@ -356,7 +407,7 @@ void main() {
 `;
 
 
-const fragmentShaderSource = `#version 300 es
+const volumeRendererFrag = `#version 300 es
 
 precision lowp float;
 precision lowp sampler3D;
@@ -578,4 +629,30 @@ void main() {
     // fragColor = vec4( vec3(v_UV.x, 1.0, 1.0), 1.0);
 
  }
+`;
+
+const axisHelperVert = `#version 300 es
+layout(location = 0) in vec3 a_Position;
+layout(location = 1) in vec3 a_Color;
+
+uniform mat4 u_ModelView;
+uniform mat4 u_Projection;
+
+out vec3 v_Color;
+
+void main() {
+    gl_Position = u_Projection * u_ModelView * vec4(a_Position, 1.0);
+    v_Color = a_Color;
+}
+`;
+
+const axisHelperFrag = `#version 300 es
+    precision mediump float;
+
+    in vec3 v_Color;
+    out vec4 outColor;
+
+    void main() {
+        outColor = vec4(v_Color, 1.0);
+    }
 `;
