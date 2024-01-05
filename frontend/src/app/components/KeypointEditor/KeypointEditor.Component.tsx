@@ -74,12 +74,10 @@ const KeypointEditorComponent: React.FC<KeypointEditorProps> = ({ keypoints, set
     };
 
     const drawGradient = (keypoint: Keypoint, nextKeypoint: Keypoint) => {
-        // console.log("alpha", keypoint.alpha);
         const startColor = validateColor(keypoint.color, keypoint.alpha);
 
 
         const endColor = validateColor(nextKeypoint.color, keypoint.alpha);
-        console.log("startColor, endColor", startColor, endColor);
         const svg = `
           <defs>
               <linearGradient id="Gradient${keypoint.id}" x1="0" x2="1" y1="0" y2="0">

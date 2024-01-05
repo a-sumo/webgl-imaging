@@ -41,12 +41,10 @@ const ViewerComponent = () => {
   useEffect(() => {
     const handleBlur = () => {
       view?.stopAnimationLoop();
-      console.log("blur");
     }
 
     const handleFocus = () => {
       view?.startAnimationLoop();
-      console.log("focus");
     }
 
     window.addEventListener('blur', handleBlur, { passive: true });
