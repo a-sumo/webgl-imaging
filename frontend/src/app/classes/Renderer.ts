@@ -17,19 +17,19 @@ export interface RendererConfig {
 
 export class Renderer {
     private gl: WebGL2RenderingContext;
-    private locations: {
+    private mode: number;
+    locations: Map<WebGLProgram, {
         uniforms: { [name: string]: WebGLUniformLocation },
         attributes: { [name: string]: number }
-    } = {
-            uniforms: {},
-            attributes: {}
-        }; private currentProgram: WebGLProgram | null = null;
+    }> = new Map();
+    private currentProgram: WebGLProgram | null = null;
 
     private shaderPrograms: { [key: string]: WebGLProgram } = {};
     private config: RendererConfig;
 
     constructor(gl: WebGL2RenderingContext, config: RendererConfig = {}) {
         this.gl = gl;
+        this.mode = this.gl.TRIANGLES;
         this.config = {
             faceCulling: true,
             alphaBlending: true,
@@ -48,41 +48,59 @@ export class Renderer {
             this.gl.blendFunc(this.config.blendFuncSrc as number, this.config.blendFuncDst as number);
         }
     }
-
+    setMode(mode: 'LINE' | 'TRIANGLE' | 'POINT'): void {
+        switch (mode) {
+            case 'LINE':
+                this.mode = this.gl.LINES;
+                break;
+            case 'TRIANGLE':
+                this.mode = this.gl.TRIANGLES;
+                break;
+            case 'POINT':
+                this.mode = this.gl.POINTS;
+                break;
+            default:
+                throw new Error(`Unsupported mode: ${mode}`);
+        }
+    }
     addUniformLocation(name: string, program: WebGLProgram) {
-        this.locations.uniforms[name] = this.gl.getUniformLocation(program, name) as WebGLUniformLocation;
+        if (!this.locations.has(program)) {
+            this.locations.set(program, { uniforms: {}, attributes: {} });
+        }
+        const programLocations = this.locations.get(program)!;
+        programLocations.uniforms[name] = this.gl.getUniformLocation(program, name) as WebGLUniformLocation;
     }
 
     addAttributeLocation(name: string, program: WebGLProgram) {
-        this.locations.attributes[name] = this.gl.getAttribLocation(program, name) as number;
+        if (!this.locations.has(program)) {
+            this.locations.set(program, { uniforms: {}, attributes: {} });
+        }
+        const programLocations = this.locations.get(program)!;
+        programLocations.attributes[name] = this.gl.getAttribLocation(program, name) as number;
     }
 
     getSceneUniformLocations(scene: Scene) {
-        // Traverse the scene's objects
-        for (const object of scene.getObjects()) {
-            // Traverse the uniforms of the object
-            let shaderProgram = object.getShaderProgram();
-            for (const [name, value] of Object.entries(object.getUniforms())) {
-                // Add the uniform location to the renderer
-                this.addUniformLocation(name, shaderProgram);
-            }
-
-        }
+        this.traverseSceneAndGetProperties(scene, 'uniforms');
     }
     getSceneAttributeLocations(scene: Scene) {
-        // Traverse the scene's objects
+        this.traverseSceneAndGetProperties(scene, 'attributes');
+    }
+    private traverseSceneAndGetProperties(scene: Scene, propertyType: 'uniforms' | 'attributes') {
         for (const object of scene.getObjects()) {
-            // Traverse the uniforms of the object
             let shaderProgram = object.getShaderProgram();
-            for (const [name, value] of Object.entries(object.getAttributes())) {
-                // Add the attribute location to the renderer
-                this.addAttributeLocation(name, shaderProgram);
+            this.gl.useProgram(shaderProgram);
+            for (const [name, value] of Object.entries(object[propertyType])) {
+                if (propertyType === 'uniforms') {
+                    this.addUniformLocation(name, shaderProgram);
+                } else {
+                    this.addAttributeLocation(name, shaderProgram);
+                }
             }
         }
     }
 
     setUniform(name: string, type: string, value: any) {
-        const location = this.locations.uniforms[name];
+        const location = this.locations.get(this.currentProgram as WebGLProgram)?.uniforms[name];
         if (location === undefined) {
             console.warn(`Uniform "${name}" is not defined.`);
             return;
@@ -133,38 +151,56 @@ export class Renderer {
                 break;
         }
     }
-    private buildShaders(vertexShaderSource: string, fragmentShaderSource: string): WebGLProgram | false {
-        let vertexShader = this.compileShader(vertexShaderSource, this.gl.VERTEX_SHADER);
-        let fragmentShader = this.compileShader(fragmentShaderSource, this.gl.FRAGMENT_SHADER);
+    printUniformLocations(program: WebGLProgram) {
+        // return all locations from this.locations.uniforms
+        return this.locations;
+    }
+
+    private buildShaders(gl: WebGL2RenderingContext, vertexShaderSource: string, fragmentShaderSource: string): WebGLProgram | false {
+
+        let vertexShader = this.compileShader(gl, vertexShaderSource, gl.VERTEX_SHADER);
+        let fragmentShader = this.compileShader(gl, fragmentShaderSource, gl.FRAGMENT_SHADER);
         if (!vertexShader || !fragmentShader) {
+            console.error('Failed to compile shaders');
             return false;
         }
-        let shaderProgram = this.gl.createProgram();
+        let shaderProgram = gl.createProgram();
         if (!shaderProgram) {
+            console.error('Unable to create shader program');
             return false;
         }
-        this.gl.attachShader(shaderProgram, vertexShader);
-        this.gl.attachShader(shaderProgram, fragmentShader);
-        this.gl.linkProgram(shaderProgram);
-        if (!this.gl.getProgramParameter(shaderProgram, this.gl.LINK_STATUS) && !this.gl.isContextLost()) {
-            console.error("Unable to link shader program:", this.gl.getProgramInfoLog(shaderProgram));
+        gl.attachShader(shaderProgram, vertexShader);
+        gl.attachShader(shaderProgram, fragmentShader);
+        gl.linkProgram(shaderProgram);
+        if (!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS) && !gl.isContextLost()) {
+            console.error('Unable to link shader program:', gl.getProgramInfoLog(shaderProgram));
+            gl.deleteProgram(shaderProgram);
             return false;
         }
-        this.gl.useProgram(shaderProgram);
+        gl.useProgram(shaderProgram);
         return shaderProgram;
     }
 
-    private compileShader(source: string, type: number): WebGLShader {
-        const shader = this.gl.createShader(type);
+    private compileShader(gl: WebGLRenderingContext, source: string, type: number): WebGLShader | null {
+        let shader = gl.createShader(type);
         if (!shader) {
-            throw new Error("Unable to create shader");
+            console.error('Unable to create shader');
+            return null;
         }
-        this.gl.shaderSource(shader, source);
-        this.gl.compileShader(shader);
+        gl.shaderSource(shader, source);
+        gl.compileShader(shader);
+        let success = gl.getShaderParameter(shader, gl.COMPILE_STATUS);
+        if (!success) {
+            console.error('Failed to compile shader:', gl.getShaderInfoLog(shader));
+            gl.deleteShader(shader);
+            return null;
+        }
         return shader;
     }
 
+
     private setupAttribute(program: WebGLProgram, name: string, data: number[], size: number): void {
+        this.gl.useProgram(program);
         const buffer = this.createBuffer(this.gl, data);
         this.gl.bindBuffer(this.gl.ARRAY_BUFFER, buffer);
         const location = this.gl.getAttribLocation(program, name);
@@ -173,23 +209,25 @@ export class Renderer {
     }
 
     createShaderProgram(vertexShaderSource: string, fragmentShaderSource: string, name: string): boolean {
-        const program = this.buildShaders(vertexShaderSource, fragmentShaderSource);
+        const program = this.buildShaders(this.gl, vertexShaderSource, fragmentShaderSource);
         if (program !== false) {
             this.shaderPrograms[name] = program;
         }
         return program !== false;
     }
-
+    addShaderProgram(program: WebGLProgram, name: string): void {
+        this.shaderPrograms[name] = program;
+    }
     getShaderProgram(name: string): WebGLProgram | undefined {
         return this.shaderPrograms[name];
     }
-
     render(scene: Scene, camera: Camera) {
         // Clear the canvas
         if (this.config.clearColor) {
             this.gl.clearColor(...this.config.clearColor);
         }
         this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
+
         // Traverse the scene's objects
         for (const object of scene.getObjects()) {
             // Use the object's shader program if it's different from the current one
@@ -204,17 +242,6 @@ export class Renderer {
                 this.setUniform(name, value.type, value.value);
             }
 
-            // Bind the VAO
-            this.gl.bindVertexArray(object.getVAO());
-
-            // Draw the object
-            if (object.getGeometry().indices.length > 0) {
-                this.gl.drawElements(this.gl.TRIANGLES, object.getGeometry().getIndexCount(), this.gl.UNSIGNED_SHORT, 0);
-            } else {
-                this.gl.drawArrays(this.gl.TRIANGLES, 0, object.getGeometry().vertexCount);
-            }
-            // Unbind the VAO
-            this.gl.bindVertexArray(null);
             // Set the uniforms for the object
             const modelViewMatrix = mat4.create();
             const modelMatrix = mat4.create();
@@ -223,32 +250,15 @@ export class Renderer {
                 this.setUniform(name, uniform.type, uniform.value);
             }
 
-        }
-    }
-    renderAxisHelper(axisHelper: AxisHelper2, modelViewMatrix: Float32List, projectionMatrix: Float32List) {
-        if (axisHelper.shaderProgram === null) {
-            console.error('Shader program is null');
-            return;
-        }
-    
-        // Set the uniform values
-        const u_ModelView = this.gl.getUniformLocation(axisHelper.shaderProgram, 'u_ModelView');
-        this.gl.uniformMatrix4fv(u_ModelView, false, modelViewMatrix);
-        const u_Projection = this.gl.getUniformLocation(axisHelper.shaderProgram, 'u_Projection');
-        this.gl.uniformMatrix4fv(u_Projection, false, projectionMatrix);
-    
-        // Render the axis lines
-        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, axisHelper.getVertexBuffer);
-        this.gl.vertexAttribPointer(0, 3, this.gl.FLOAT, false, 0, 0);
-        this.gl.enableVertexAttribArray(0);
-    
-        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, axisHelper.getColorBuffer);
-        this.gl.vertexAttribPointer(1, 3, this.gl.FLOAT, false, 0, 0);
-        this.gl.enableVertexAttribArray(1);
-    
-        this.gl.drawArrays(this.gl.LINES, 0, 6);
+            // Bind the VAO
+            this.gl.bindVertexArray(object.getVAO());
 
-        this.gl.useProgram(null);
+            // Draw the object
+            this.draw(object.getGeometry(), object.getDrawType(), object.getDrawMode());
+
+            // Unbind the VAO
+            this.gl.bindVertexArray(null);
+        }
     }
     createBuffer(gl: WebGL2RenderingContext, data: number[], target: WebGL2RenderingContext["ARRAY_BUFFER"] | WebGL2RenderingContext["ELEMENT_ARRAY_BUFFER"] = gl.ARRAY_BUFFER): WebGLBuffer | null {
         const buffer = gl.createBuffer();
@@ -261,6 +271,22 @@ export class Renderer {
             }
         }
         return buffer;
+    }
+    draw(geometry: Geometry, drawType: string, drawMode: string): void {
+        this.gl.useProgram(this.currentProgram);
+        switch (drawType) {
+            case 'ARRAYS':
+                // console.log("drawing arrays in mode", this.mode);
+                this.gl.drawArrays(this.getGLDrawMode(drawMode), 0, geometry.vertexCount);
+                break;
+            case 'ELEMENTS':
+                // console.log("drawing elements in mode", this.mode); 
+                this.gl.drawElements(this.getGLDrawMode(drawMode), geometry.getIndexCount(), this.gl.UNSIGNED_SHORT, 0);
+                break;
+            default:
+                throw new Error(`Unsupported draw type: ${drawType}`);
+        }
+        this.gl.useProgram(null);
     }
 
     setupVAO(object: Object3D): WebGLVertexArrayObject | null {
@@ -315,9 +341,9 @@ export class Renderer {
                     throw new Error(`Unsupported attribute type: ${attribute.type}`);
             }
         }
-
-        // // Set up the index attribute
+        // Set up the index attribute
         const indexBuffer = this.createBuffer(this.gl, geometry.indices, this.gl.ELEMENT_ARRAY_BUFFER);
+
         this.gl.bindBuffer(this.gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
         // Store the VAO in the object
         object.setVAO(vao);
@@ -326,7 +352,9 @@ export class Renderer {
 
         return vao;
     }
-
+    init() {
+        // TODO: find a more streamlined way to set up the shaders
+    }
     uploadTexture2D(texture: Texture2D, textureUnit: number): WebGLTexture | null {
         let { data, width, height, type } = texture.textureData;
         const previousTextureUnit = this.gl.getParameter(this.gl.ACTIVE_TEXTURE);
@@ -430,6 +458,39 @@ export class Renderer {
 
         this.gl.activeTexture(previousTextureUnit);
         return glTexture;
+    }
+    private getGLDrawType(drawType: 'ARRAYS' | 'ELEMENTS'): number {
+        // console.log("drawtype", drawType);
+        switch (drawType) {
+            case 'ARRAYS':
+                return this.gl.ARRAY_BUFFER;
+            case 'ELEMENTS':
+                return this.gl.ELEMENT_ARRAY_BUFFER;
+            default:
+                throw new Error(`Unsupported draw type: ${drawType}`);
+        }
+    }
+
+    private getGLDrawMode(drawMode: string): number {
+        // console.log("drawmode", drawMode);
+        switch (drawMode) {
+            case 'POINTS':
+                return this.gl.POINTS;
+            case 'LINE_STRIP':
+                return this.gl.LINE_STRIP;
+            case 'LINE_LOOP':
+                return this.gl.LINE_LOOP;
+            case 'LINES':
+                return this.gl.LINES;
+            case 'TRIANGLE_STRIP':
+                return this.gl.TRIANGLE_STRIP;
+            case 'TRIANGLE_FAN':
+                return this.gl.TRIANGLE_FAN;
+            case 'TRIANGLES':
+                return this.gl.TRIANGLES;
+            default:
+                throw new Error(`Unsupported draw mode: ${drawMode}`);
+        }
     }
 
 }
