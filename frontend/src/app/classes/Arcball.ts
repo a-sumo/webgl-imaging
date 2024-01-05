@@ -73,7 +73,7 @@ export class Arcball {
 
     onMouseWheel(event: WheelEvent) {
         const zoomAmount = event.deltaY * 0.01 * Arcball.ZOOM_SPEED;
-        this.arcballRadius = Math.max(1.0, Math.min(100.0, this.arcballRadius - zoomAmount));
+        this.arcballRadius = Math.max(0.1, Math.min(100.0, this.arcballRadius - zoomAmount));
         this.update();
     }
 
