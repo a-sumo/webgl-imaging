@@ -75,7 +75,7 @@ const KeypointEditorComponent: React.FC<KeypointEditorProps> = ({ keypoints, set
 
     const drawGradient = (keypoint: Keypoint, nextKeypoint: Keypoint) => {
         // console.log("alpha", keypoint.alpha);
-        const startColor =  validateColor(keypoint.color, keypoint.alpha);
+        const startColor = validateColor(keypoint.color, keypoint.alpha);
 
 
         const endColor = validateColor(nextKeypoint.color, keypoint.alpha);
@@ -97,8 +97,10 @@ const KeypointEditorComponent: React.FC<KeypointEditorProps> = ({ keypoints, set
     };
 
     const onKeypointMouseDown = (event: React.MouseEvent, keypoint: Keypoint) => {
-        setActiveKeypointId(keypoint.id);
+        event.stopPropagation();
         setIsDragging(true);
+        setActiveKeypointId(keypoint.id);
+        window.addEventListener('mouseup', onMouseUp);
     };
 
     const onMouseMove = (event: MouseEvent) => {
@@ -121,6 +123,7 @@ const KeypointEditorComponent: React.FC<KeypointEditorProps> = ({ keypoints, set
     const onMouseUp = (event: MouseEvent) => {
         setIsDragging(false);
         onKeypointChange(keypoints);
+        window.removeEventListener('mouseup', onMouseUp);
     };
 
     const onGradientClick = (event: React.MouseEvent) => {
@@ -151,10 +154,20 @@ const KeypointEditorComponent: React.FC<KeypointEditorProps> = ({ keypoints, set
         return `data:image/svg+xml,${encodeURIComponent(svg)}`;
     }
     function generatePathD(keypoints: Keypoint[], width: number, height: number): string {
-        let d = `M ${keypoints[0].x * width} ${(1 - keypoints[0].alpha) * height}`;
-        for (let i = 0; i < keypoints.length; i++) {
+        // Start at the left edge with the alpha value of the first keypoint
+        let d = `M 0 ${(1 - keypoints[0].alpha) * height}`;
+
+        // Draw a line to the first keypoint
+        d += ` L ${keypoints[0].x * width} ${(1 - keypoints[0].alpha) * height}`;
+
+        // Draw lines for the middle keypoints
+        for (let i = 1; i < keypoints.length; i++) {
             d += ` L ${keypoints[i].x * width} ${(1 - keypoints[i].alpha) * height}`;
         }
+
+        // Draw a line to the right edge with the alpha value of the last keypoint
+        d += ` L ${width} ${(1 - keypoints[keypoints.length - 1].alpha) * height}`;
+
         return d;
     }
     const onColorChange = (color: ColorResult) => {
@@ -167,9 +180,6 @@ const KeypointEditorComponent: React.FC<KeypointEditorProps> = ({ keypoints, set
         }
     };
 
-    const onAlphaChange = () => {
-
-    }
     return (
         <div ref={keypointEditorContainerRef} className={styles.keypointEditorContainer}>
             <div className={styles.keypointIconsContainer}>
