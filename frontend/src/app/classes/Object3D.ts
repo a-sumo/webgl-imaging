@@ -14,28 +14,22 @@ export class Object3D {
 	public shaderProgram: WebGLProgram;
 	private uniforms: { [name: string]: { type: string, value: any } } = {};
 	private attributes: { [name: string]: { type: string, value: any } } = {};
-	private vao: WebGLVertexArrayObject | null;
-
-    constructor(gl: WebGL2RenderingContext, geometry: Geometry, shaderProgram?: WebGLProgram) {
+	locations: {
+        uniforms: { [name: string]: WebGLUniformLocation },
+        attributes: { [name: string]: number }
+    } = {
+        uniforms: {},
+        attributes: {}
+    };
+	private vao: WebGLVertexArrayObject | null = null
+    protected drawType: 'ARRAYS' | 'ELEMENTS' = 'ELEMENTS';
+	protected drawMode: 'POINTS' | 'LINES' | 'TRIANGLES'  = 'TRIANGLES';
+    constructor(geometry: Geometry, shaderProgram: WebGLProgram) {
         this.modelMatrix = mat4.create();
         this.geometry = geometry;
-        this.shaderProgram = shaderProgram || this.createDefaultShaderProgram(gl);
+        this.shaderProgram = shaderProgram;
         this.computeBoundingBox(geometry);
-        this.vao = null; // Initialize vao
-    }
-    private createDefaultShaderProgram(gl: WebGL2RenderingContext): WebGLProgram {
-        // Create a simple default shader program here
-        // This is just a placeholder, replace it with your actual shader program creation code
-        const vertexShader = gl.createShader(gl.VERTEX_SHADER);
-        const fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
-        const program = gl.createProgram();
-		if (!vertexShader || !fragmentShader || !program) {
-			throw new Error('Failed to create default shaders/program.');
-		}
-        gl.attachShader(program, vertexShader);
-        gl.attachShader(program, fragmentShader);
-        gl.linkProgram(program);
-        return program;
+
     }
 	private computeBoundingBox(geometry: Geometry): void {
 		if (geometry.vertices.length % 3 !== 0) {
@@ -85,6 +79,20 @@ export class Object3D {
 
 	getVAO(): WebGLVertexArrayObject | null {
 		return this.vao;
+	}
+
+	getDrawType(): 'ARRAYS' | 'ELEMENTS' {
+        return this.drawType;
+    }
+
+    setDrawType(drawType: 'ARRAYS' | 'ELEMENTS'): void {
+        this.drawType = drawType;
+    }
+	getDrawMode(): 'POINTS' | 'LINES' | 'TRIANGLES' {
+		return this.drawMode;
+	}
+	setDrawMode(drawMode: 'POINTS' | 'LINES' | 'TRIANGLES'): void {
+		this.drawMode = drawMode;
 	}
 	// Reset the model matrix to the identity matrix
 	resetTransform(): void {
