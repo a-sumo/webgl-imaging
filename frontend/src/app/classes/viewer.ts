@@ -194,6 +194,7 @@ export class Viewer {
 
         // Transfer function texture
         const tfWidth = 128;
+        console.log("keypoints", keypoints);
         const tfData = generateTFData(tfWidth, keypoints);
         const data2DTexture = Texture2D.fromData(tfData, tfWidth, 1);
         data2DTexture.internalFormat = this.gl.RGBA;
