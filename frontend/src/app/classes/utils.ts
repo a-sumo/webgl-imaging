@@ -84,7 +84,7 @@ export function initializeDataTexture(gl: WebGL2RenderingContext, xLength: numbe
     return texture;
 }
 
-export function initializeSphereTexture(gl: WebGL2RenderingContext, width: number, height: number, depth: number, radius: number, textureUnit: number ): WebGLTexture {
+export function initializeSphereTexture(gl: WebGL2RenderingContext, width: number, height: number, depth: number, radius: number, textureUnit: number): WebGLTexture {
     const previousTextureUnit = gl.getParameter(gl.ACTIVE_TEXTURE);
     const texture = gl.createTexture();
     if (!texture) {
@@ -161,7 +161,7 @@ export function generateNoiseTexture(gl: WebGL2RenderingContext, width: number, 
 export function generateNoiseData(width: number, height: number): any {
     const noiseData = new Uint8Array(width * height);
     for (let i = 0; i < width * height; i++) {
-        noiseData[i] = Math.random() * 255; 
+        noiseData[i] = Math.random() * 255;
     }
     return noiseData;
 }
@@ -238,30 +238,43 @@ export function generateTFData(width: number, keypoints: Keypoint[]): Uint8Array
 
 export function buildShaders(gl: WebGL2RenderingContext, vertexShaderSource: string, fragmentShaderSource: string): WebGLProgram | false {
 
-    let vertexShader = compileShader(gl, vertexShaderSource, gl.VERTEX_SHADER) as WebGLShader;
-    let fragmentShader = compileShader(gl, fragmentShaderSource, gl.FRAGMENT_SHADER) as WebGLShader;
+    let vertexShader = compileShader(gl, vertexShaderSource, gl.VERTEX_SHADER);
+    let fragmentShader = compileShader(gl, fragmentShaderSource, gl.FRAGMENT_SHADER);
     if (!vertexShader || !fragmentShader) {
+        console.error('Failed to compile shaders');
         return false;
     }
     let shaderProgram = gl.createProgram();
     if (!shaderProgram) {
+        console.error('Unable to create shader program');
         return false;
     }
     gl.attachShader(shaderProgram, vertexShader);
     gl.attachShader(shaderProgram, fragmentShader);
     gl.linkProgram(shaderProgram);
     if (!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS) && !gl.isContextLost()) {
-        console.error("Unable to link shader program:", gl.getProgramInfoLog(shaderProgram));
+        console.error('Unable to link shader program:', gl.getProgramInfoLog(shaderProgram));
+        gl.deleteProgram(shaderProgram);
         return false;
     }
     gl.useProgram(shaderProgram);
     return shaderProgram;
 }
 
-function compileShader(gl: WebGL2RenderingContext, source: any, type: any): WebGLShader {
-    const shader = gl.createShader(type) as WebGLShader;
+function compileShader(gl: WebGLRenderingContext, source: string, type: number): WebGLShader | null {
+    let shader = gl.createShader(type);
+    if (!shader) {
+        console.error('Unable to create shader');
+        return null;
+    }
     gl.shaderSource(shader, source);
     gl.compileShader(shader);
+    let success = gl.getShaderParameter(shader, gl.COMPILE_STATUS);
+    if (!success) {
+        console.error('Failed to compile shader:', gl.getShaderInfoLog(shader));
+        gl.deleteShader(shader);
+        return null;
+    }
     return shader;
 }
 
