@@ -34,40 +34,52 @@ const KeypointEditorComponent: React.FC<KeypointEditorProps> = ({ keypoints, set
         };
     }, [keypoints]);
 
+    const validateColor = (color: string, alpha: number) => {
+        if (color === 'transparent') {
+            return 'rgba(0,0,0,0)';
+        } else {
+            return `rgba(${chroma(color).alpha(alpha).rgba().join(',')})`;
+        }
+    };
+
     const draw = () => {
         if (!gradientSvgRef.current) {
             return;
         }
         gradientSvgRef.current.innerHTML = '';
 
-        // Draw the left edge point
-        const leftEdgePoint = { id: 0, x: 0, color: keypoints[0].color, alpha: keypoints[0].alpha };
-        drawGradient(leftEdgePoint, keypoints[0]);
+        // Draw the left edge point to the first keypoint
+        const leftEdgePoint = { id: Date.now(), x: 0, color: validateColor(keypoints[0].color, keypoints[0].alpha), alpha: keypoints[0].alpha };
+        drawConstantColor(leftEdgePoint, keypoints[0]);
 
-        // Draw the middle keypoints
-        keypoints.slice(1, -1).forEach((keypoint, index) => {
-            drawGradient(keypoint, keypoints[index + 2]);
-        });
+        // Draw the gradients for the middle keypoints
+        for (let i = 0; i < keypoints.length - 1; i++) {
+            drawGradient(keypoints[i], keypoints[i + 1]);
+        }
 
-        // Draw the right edge point
-        const rightEdgePoint = {
-            id: 1,
-            x: gradientSvgRef.current.getBoundingClientRect().width,
-            color: keypoints[keypoints.length - 1].color,
-            alpha: keypoints[keypoints.length - 1].alpha
-        };
-        drawGradient(keypoints[keypoints.length - 2], rightEdgePoint);
+        // Draw the last keypoint to the right edge point
+        const rightEdgePoint = { id: Date.now(), x: 1, color: validateColor(keypoints[keypoints.length - 1].color, keypoints[keypoints.length - 1].alpha), alpha: keypoints[keypoints.length - 1].alpha };
+        drawConstantColor(keypoints[keypoints.length - 1], rightEdgePoint);
+    };
+
+    const drawConstantColor = (keypoint: Keypoint, nextKeypoint: Keypoint) => {
+        const color = validateColor(keypoint.color, keypoint.alpha);
+        const svg = `
+            <rect x="${keypoint.x * keypointSvgWidth}" y="0" width="${(nextKeypoint.x - keypoint.x) * keypointSvgWidth}" height="100%" fill="${color}" />
+        `;
+
+        const svgElement = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svgElement.innerHTML = svg;
+        gradientSvgRef.current!.appendChild(svgElement);
     };
 
     const drawGradient = (keypoint: Keypoint, nextKeypoint: Keypoint) => {
         // console.log("alpha", keypoint.alpha);
-        const startColor = keypoint.color !== 'transparent'
-            ? `rgba(${chroma(keypoint.color).alpha(keypoint.alpha).rgba().join(',')})`
-            : `rgba(0,0,0,0)`;
+        const startColor =  validateColor(keypoint.color, keypoint.alpha);
 
-        const endColor = nextKeypoint.color !== 'transparent'
-            ? `rgba(${chroma(nextKeypoint.color).alpha(nextKeypoint.alpha).rgba().join(',')})`
-            : `rgba(0,0,0,0)`;
+
+        const endColor = validateColor(nextKeypoint.color, keypoint.alpha);
+        console.log("startColor, endColor", startColor, endColor);
         const svg = `
           <defs>
               <linearGradient id="Gradient${keypoint.id}" x1="0" x2="1" y1="0" y2="0">
@@ -140,7 +152,7 @@ const KeypointEditorComponent: React.FC<KeypointEditorProps> = ({ keypoints, set
     }
     function generatePathD(keypoints: Keypoint[], width: number, height: number): string {
         let d = `M ${keypoints[0].x * width} ${(1 - keypoints[0].alpha) * height}`;
-        for (let i = 1; i < keypoints.length; i++) {
+        for (let i = 0; i < keypoints.length; i++) {
             d += ` L ${keypoints[i].x * width} ${(1 - keypoints[i].alpha) * height}`;
         }
         return d;
