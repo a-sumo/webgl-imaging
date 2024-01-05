@@ -261,6 +261,7 @@ export class Viewer {
             this.gl.useProgram(axisHelperShaderProgram);
 
             const axisHelperObject = new AxisHelper2(axisHelperGeometry, axisHelperShaderProgram);
+            axisHelperObject.setScale([0.1, 0.1, 0.1])
             // Add object to scene
             this.scene.addObject('axisHelper', axisHelperObject);
             // Declare attribute names and types
@@ -297,9 +298,6 @@ export class Viewer {
         // Get attribute locations
         this.renderer.getSceneAttributeLocations(this.scene);
 
-        // render the scene
-        // this.renderer.render(this.scene, this.camera);
-        this.startAnimationLoop();
 
     }
     updateUniforms() {
@@ -376,7 +374,6 @@ export class Viewer {
         const previousTextureUnit = this.gl.getParameter(this.gl.ACTIVE_TEXTURE);
         // Delete old transfer function texture if it exists
         if (this.tfTexture) {
-            console.log("deleting old tf texture");
             this.gl.deleteTexture(this.tfTexture);
         }
         // Transfer function texture
