@@ -121,7 +121,7 @@ export class Viewer {
         const uvs = mesh.uvs;
         const cubeGeo = new Geometry(this.gl, { vertices: vertices, indices: indices, normals: normals, uvs: uvs });
 
-        this.cube = new Object3D(this.gl, cubeGeo, this.volumeShaderProgram);
+        this.cube = new Object3D(cubeGeo, this.volumeShaderProgram);
         if (!this.cube) {
             console.error("[viewer.ts] Unable to initialize the 3D object");
             throw new Error("Unable to initialize the 3D object");
@@ -365,11 +365,8 @@ export class Viewer {
         this.tfTexture = initializeTFTexture(this.gl, tfWidth, 1, tfData, textureUnit + 1);
         this.gl.activeTexture(this.gl.TEXTURE0 + 1);
         this.gl.uniform1i(this.locations.uniforms.u_TFTex, textureUnit + 1);
-        console.log("active texture unit before reset", this.gl.getParameter(this.gl.ACTIVE_TEXTURE));
         // Restore the previous active texture unit
         this.gl.activeTexture(previousTextureUnit);
-        console.log("active texture unit after reset ", this.gl.getParameter(this.gl.ACTIVE_TEXTURE));
-
         // this.display();
         // this.updateTextures();
     }
