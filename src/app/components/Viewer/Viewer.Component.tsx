@@ -14,6 +14,8 @@ const ViewerComponent = () => {
     { id: 0, x: 0, color: "#000000", alpha: 0 },
     { id: 1, x: 1, color: "#ffffff", alpha: 1 },
   ]);
+  const [isKeypointsLoaded, setIsKeypointsLoaded] = useState(false);
+
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   const [view, setView] = useState<Viewer | null>(null);
@@ -26,17 +28,20 @@ const ViewerComponent = () => {
       view.updateTransferFunction(updatedKeypoints);
     }
   };
-  // Load keypoints from localStorage once when the component mounts
+  // Load keypoints from local storage when the component mounts
   useEffect(() => {
-    const initialKeypoints = localStorage.getItem('keypoints')
-      ? JSON.parse(localStorage.getItem('keypoints') as string)
-      : keypoints;
-    setKeypoints(initialKeypoints);
+    const storedKeypoints = localStorage.getItem('keypoints');
+    if (storedKeypoints) {
+      setKeypoints(JSON.parse(storedKeypoints));
+      setIsKeypointsLoaded(true);
+    }
   }, []);
   // Save keypoints to localStorage whenever they change
   useEffect(() => {
-    localStorage.setItem('keypoints', JSON.stringify(keypoints));
-  }, [keypoints]);
+    if (isKeypointsLoaded) {
+      localStorage.setItem('keypoints', JSON.stringify(keypoints));
+    }
+  }, [keypoints, isKeypointsLoaded]);
 
   const getNrrdData = (): Promise<ArrayBuffer> => {
     const filePath = '/MR-head.nrrd';
@@ -77,6 +82,9 @@ const ViewerComponent = () => {
         anliasing: true
       }) as WebGL2RenderingContext;
 
+      const storedKeypoints = localStorage.getItem('keypoints');
+      const initialKeypoints = storedKeypoints ? JSON.parse(storedKeypoints) : keypoints;
+
       const viewer = new Viewer(gl, canvas2Element, keypoints, { useAxisHelper: true });
       setView(viewer);
       // Prevent scrolling when mouse wheel is used inside the viewer
@@ -88,9 +96,9 @@ const ViewerComponent = () => {
       getNrrdData().then(arrayBuffer => {
         const nrrdLoader = new NRRDLoader();
         const dataArray = nrrdLoader.parse(arrayBuffer);
-        viewer.init(dataArray, keypoints);
+        viewer.init(dataArray, initialKeypoints);
         setIsViewInit(true);
-        viewer.updateTransferFunction(keypoints);
+        viewer.updateTransferFunction(initialKeypoints);
         viewer.startAnimationLoop();
 
       }).catch(error => {
@@ -102,8 +110,8 @@ const ViewerComponent = () => {
     };
   }, []);
 
-  return <div className="viewerContainer">
-    <canvas ref={canvasRef} width="600" height="400" />
+  return <div className={styles.viewerContainer}>
+    <canvas className={styles.viewerCanvas} ref={canvasRef} width="1200" height="800" />
     <KeypointEditorComponent keypoints={keypoints} setKeypoints={setKeypoints} onKeypointChange={handleKeypointUpdate} />
   </div>;
 };

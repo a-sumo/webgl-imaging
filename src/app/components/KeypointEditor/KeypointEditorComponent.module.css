@@ -2,9 +2,13 @@
     z-index: 2;
     width: 440px; 
     padding: 20px;
-    position: absolute; 
-    border-radius: 10px;
-    background-color: rgb(66, 66, 66)
+    margin: 5px;
+    position: relative; 
+    background-color: rgb(15, 23, 29);
+    border-style: solid;
+    border-radius: 5px;
+    border-color: rgb(119, 117, 117);
+    border-width: 1px;
 }
 
 .keypointGradient {
@@ -21,7 +25,13 @@
     margin-top: 10px;
     width: 400px;
     position: relative; 
-    margin-bottom: 10px;
+    border-style: solid;
+    border-color: rgb(255, 255, 255);
+    border-width: 1px;  
+    border-radius: 5px; 
+    background-color: rgb(0, 0, 0);
+    padding: 10px;
+       
 
 }
 
@@ -35,7 +45,7 @@
 
 .keypointColorPicker {
     z-index: 4;
-    margin-top: 20px;
+    margin-top: 5px;
     position: relative;
     top: 0; 
 }

@@ -30,7 +30,9 @@ export class Viewer {
     private camera: Camera;
     private renderer: Renderer;
     public rendererConfig: RendererConfig = {
-        clearColor: [199 / 255, 228 / 255, 252 / 255, 0.0],
+        // clearColor: [199 / 255, 228 / 255, 252 / 255, 0.0],
+        clearColor: [0.0, 0.0, 0.0, 0.0],
+
     };
     private animationId: number | null = null;
     private controls: any;
