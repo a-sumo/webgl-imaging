@@ -10,13 +10,10 @@ import styles from './Viewer.Component.module.css';
 
 const ViewerComponent = () => {
 
-  const initialKeypoints = localStorage.getItem('keypoints') 
-  ? JSON.parse(localStorage.getItem('keypoints') as string) 
-  : [
+  const [keypoints, setKeypoints] = useState<Keypoint[]>([
     { id: 0, x: 0, color: "#000000", alpha: 0 },
     { id: 1, x: 1, color: "#ffffff", alpha: 1 },
-  ];
-  const [keypoints, setKeypoints] = useState<Keypoint[]>(initialKeypoints);
+  ]);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   const [view, setView] = useState<Viewer | null>(null);
@@ -29,10 +26,17 @@ const ViewerComponent = () => {
       view.updateTransferFunction(updatedKeypoints);
     }
   };
-// Save keypoints to localStorage whenever they change
-useEffect(() => {
-  localStorage.setItem('keypoints', JSON.stringify(keypoints));
-}, [keypoints]);
+  // Load keypoints from localStorage once when the component mounts
+  useEffect(() => {
+    const initialKeypoints = localStorage.getItem('keypoints')
+      ? JSON.parse(localStorage.getItem('keypoints') as string)
+      : keypoints;
+    setKeypoints(initialKeypoints);
+  }, []);
+  // Save keypoints to localStorage whenever they change
+  useEffect(() => {
+    localStorage.setItem('keypoints', JSON.stringify(keypoints));
+  }, [keypoints]);
 
   const getNrrdData = (): Promise<ArrayBuffer> => {
     const filePath = '/MR-head.nrrd';
