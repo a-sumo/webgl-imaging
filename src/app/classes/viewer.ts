@@ -29,6 +29,9 @@ export class Viewer {
     private scene: Scene;
     private camera: Camera;
     private renderer: Renderer;
+    public rendererConfig: RendererConfig = {
+        clearColor: [199 / 255, 228 / 255, 252 / 255, 0.0],
+    };
     private animationId: number | null = null;
     private controls: any;
     private keypoints: Keypoint[] = [];
@@ -38,7 +41,7 @@ export class Viewer {
 
         this.canvas = canvas;
         this.gl = gl;
-        this.renderer = new Renderer(gl, { clearColor: [199 / 255, 228 / 255, 252 / 255, 0.0] });
+        this.renderer = new Renderer(gl, this.rendererConfig);
         this.scene = new Scene();
         const fieldOfView = Math.PI / 2.;
         const aspect = this.canvas.width / this.canvas.height;

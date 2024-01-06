@@ -19,7 +19,7 @@ const KeypointEditorComponent: React.FC<KeypointEditorProps> = ({ keypoints, set
     const gradientSvgRef = useRef<SVGSVGElement>(null);
     const keypointSvgWidth = gradientSvgRef.current?.getBoundingClientRect().width ? gradientSvgRef.current?.getBoundingClientRect().width : 400;
     const keypointSvgHeight = gradientSvgRef.current?.getBoundingClientRect().height ? gradientSvgRef.current?.getBoundingClientRect().height : 50;
-
+    
     useEffect(() => {
         draw();
         if (keypointEditorContainerRef.current) {
@@ -63,7 +63,7 @@ const KeypointEditorComponent: React.FC<KeypointEditorProps> = ({ keypoints, set
     };
 
     const drawConstantColor = (keypoint: Keypoint, nextKeypoint: Keypoint) => {
-        const color = validateColor(keypoint.color, keypoint.alpha);
+        const color = validateColor(keypoint.color, 1.0);
         const svg = `
             <rect x="${keypoint.x * keypointSvgWidth}" y="0" width="${(nextKeypoint.x - keypoint.x) * keypointSvgWidth}" height="100%" fill="${color}" />
         `;
@@ -74,10 +74,10 @@ const KeypointEditorComponent: React.FC<KeypointEditorProps> = ({ keypoints, set
     };
 
     const drawGradient = (keypoint: Keypoint, nextKeypoint: Keypoint) => {
-        const startColor = validateColor(keypoint.color, keypoint.alpha);
+        const startColor = validateColor(keypoint.color, 1.0);
 
 
-        const endColor = validateColor(nextKeypoint.color, keypoint.alpha);
+        const endColor = validateColor(nextKeypoint.color, 1.0);
         const svg = `
           <defs>
               <linearGradient id="Gradient${keypoint.id}" x1="0" x2="1" y1="0" y2="0">
