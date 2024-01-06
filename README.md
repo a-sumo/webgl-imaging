@@ -1,5 +1,5 @@
 
-<img width="800" alt="Screenshot 2024-01-06 at 14 45 02" src="https://github.com/a-sumo/webgl-imaging/assets/75185852/754f885d-97f4-46aa-89c0-e7c14022b475">
+<img width="800" alt="Screenshot 2024-01-06 at 14 45 02" src="https://github.com/a-sumo/webgl-imaging/assets/75185852/cd7525d6-e13b-43de-ba22-ed8ed0088784">
 
 Imaging app built in WebGL2 and React. 
 
